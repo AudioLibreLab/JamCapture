@@ -1,0 +1,43 @@
+# JamCapture E2E Test Configuration
+# Uses paplay instances with specific client names for testing
+
+active_config: "e2e"
+
+# Test channel definitions
+definitions:
+  channels:
+    - id: test_guitar
+      name: "guitar"
+      type: "input"
+      sources:
+        - "paplay_guitar:output_FL"
+      audiomode: "mono"
+      volume: 2.0
+      delay: 0
+
+    - id: test_backing
+      name: "backing"
+      type: "monitor"
+      sources:
+        - "paplay_backing:output_FL"
+        - "paplay_backing:output_FR"
+      audiomode: "stereo"
+      volume: 0.8
+      delay: 0
+
+configs:
+  # E2E test profile - uses named paplay instances for reproducible testing
+  e2e:
+    audio:
+      sample_rate: 48000
+
+    # Channel configuration for two paplay instances:
+    # 1. paplay_guitar - simulates guitar input
+    # 2. paplay_backing - simulates backing track/monitor audio
+    channels:
+      - ref: test_guitar
+      - ref: test_backing
+
+    output:
+      directory: "/tmp/jamcapture-test"
+      format: "flac"

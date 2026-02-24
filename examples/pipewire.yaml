@@ -1,0 +1,73 @@
+active_config: carla
+audio:
+    backend: pipewire
+    sample_rate: 48000
+configs:
+    carla:
+        auto_mix: true
+        channels:
+            - ref: carla
+              volume: 1.5
+            - ref: chrome
+        output:
+            format: flac
+    xr18_studio:
+        auto_mix: true
+        channels:
+            - ref: xr18_1
+            - ref: xr18_2
+            - ref: xr18_aux
+        output:
+            format: flac
+definitions:
+    channels:
+        - audiomode: mono
+          delay: 0
+          id: carla
+          name: carla
+          sources:
+            - Carla-Patchbay:audio-out1
+          type: input
+          volume: 4
+        - audiomode: stereo
+          delay: 0
+          id: xr18_aux
+          name: aux
+          sources:
+            - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX16
+            - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX17
+          type: input
+          volume: 4
+        - audiomode: mono
+          delay: 0
+          id: xr18_1
+          name: guitar
+          sources:
+            - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX0
+          type: input
+          volume: 4
+        - audiomode: mono
+          delay: 0
+          id: xr18_2
+          name: mic
+          sources:
+            - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX1
+          type: input
+          volume: 4
+        - audiomode: stereo
+          delay: 0
+          id: chrome
+          name: chrome
+          sources:
+            - Google Chrome:output_FR
+            - Google Chrome:output_FL
+          type: monitor
+          volume: 0.8
+globals:
+    output:
+        backingtracks_directory: ~/Audio/JamCapture/BackingTracks
+        recordings_directory: ~/Audio/JamCapture/Recordings
+supported_audio_extensions:
+    - flac
+    - wav
+    - mp3

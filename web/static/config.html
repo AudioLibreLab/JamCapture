@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JamCapture - Configuration</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        /* Navigation header */
+        .nav-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-radius: var(--pico-border-radius);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        .nav-title {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 0;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--pico-border-radius);
+            transition: background-color 0.3s ease;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Configuration list layout */
+        .config-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .create-button {
+            background: var(--pico-color-success);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--pico-border-radius);
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .create-button:hover {
+            background: var(--pico-color-success-hover);
+            transform: translateY(-1px);
+        }
+
+        .configs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .config-item {
+            border: 2px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            background: var(--pico-card-background-color);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .config-item.active {
+            border-color: var(--pico-color-success);
+            background: var(--pico-color-success-background);
+        }
+
+        .config-item.editing {
+            border-color: var(--pico-color-warning);
+            background: var(--pico-color-warning-background);
+        }
+
+        .config-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .config-header:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .config-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .config-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--pico-color-primary);
+            margin: 0;
+        }
+
+        .config-badges {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .config-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .config-badge.active {
+            background: var(--pico-color-success);
+            color: white;
+        }
+
+        .config-badge.channels {
+            background: var(--pico-color-primary-background);
+            color: var(--pico-color-primary);
+        }
+
+        .config-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .action-btn {
+            padding: 0.5rem;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: var(--pico-border-radius);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .action-btn.activate {
+            background: var(--pico-color-success);
+            color: white;
+            padding: 0.5rem 1rem;
+            font-weight: bold;
+        }
+
+        .action-btn.edit {
+            color: var(--pico-color-warning);
+        }
+
+        .action-btn.clone {
+            color: var(--pico-color-primary);
+        }
+
+        .action-btn.delete {
+            color: var(--pico-color-danger);
+        }
+
+        .expand-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .config-item.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        .config-details {
+            display: none;
+            padding: 0 1rem 1rem;
+            border-top: 1px solid var(--pico-border-color);
+            background: var(--pico-background-color);
+        }
+
+        .config-item.expanded .config-details {
+            display: block;
+        }
+
+        /* Profile editing form */
+        .edit-form {
+            padding: 1rem;
+            background: var(--pico-color-warning-background);
+            border-top: 1px solid var(--pico-color-warning);
+        }
+
+        .form-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-section h4 {
+            margin-bottom: 0.75rem;
+            color: var(--pico-color-primary);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .channel-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .channel-item {
+            display: grid;
+            grid-template-columns: 1fr 2fr auto auto;
+            gap: 0.5rem;
+            align-items: center;
+            padding: 0.5rem;
+            background: var(--pico-card-background-color);
+            border-radius: var(--pico-border-radius);
+        }
+
+        .searchable-select {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .searchable-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            font-size: 0.9rem;
+        }
+
+        .searchable-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--pico-border-color);
+            border-top: none;
+            border-radius: 0 0 var(--pico-border-radius) var(--pico-border-radius);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .dropdown-item {
+            padding: 0.5rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--pico-border-color);
+            font-size: 0.9rem;
+        }
+
+        .dropdown-item:hover {
+            background: var(--pico-color-primary-background);
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .port-type {
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .port-type.input {
+            background: var(--pico-color-success-background);
+            color: var(--pico-color-success);
+        }
+
+        .port-type.monitor {
+            background: var(--pico-color-warning-background);
+            color: var(--pico-color-warning);
+        }
+
+        .port-type.output {
+            background: var(--pico-color-primary-background);
+            color: var(--pico-color-primary);
+        }
+
+        .remove-channel {
+            background: var(--pico-color-danger);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-channel {
+            background: var(--pico-color-success);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--pico-border-radius);
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--pico-border-color);
+        }
+
+        .btn-save {
+            background: var(--pico-color-success);
+            color: white;
+        }
+
+        .btn-cancel {
+            background: var(--pico-color-secondary);
+            color: white;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 2rem;
+            border-radius: var(--pico-border-radius);
+            text-align: center;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .nav-content {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .config-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+
+            .config-actions {
+                justify-content: center;
+            }
+
+            .config-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .channel-item {
+                grid-template-columns: 1fr;
+                gap: 0.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <div class="nav-header">
+        <div class="nav-content">
+            <a href="/" class="nav-title">🎸 JamCapture</a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">🏠 Recording</a>
+                <a href="/config" class="nav-link active">⚙️ Configuration</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Page Header -->
+        <header>
+            <h1>⚙️ Configuration Management</h1>
+            <p>Manage your audio recording profiles. Create, edit, and switch between different configurations for various recording scenarios.</p>
+        </header>
+
+        <!-- Controls -->
+        <div class="config-controls">
+            <div>
+                <strong id="profiles-count">0</strong> profiles configured
+            </div>
+            <button class="create-button" onclick="createNewProfile()">
+                ➕ Create New Profile
+            </button>
+        </div>
+
+        <!-- Response Area -->
+        <div id="response-area"></div>
+
+        <!-- Configurations List -->
+        <div class="configs-list" id="configs-list">
+            <div style="text-align: center; padding: 2rem;">
+                <p>🔄 Loading configurations...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-content">
+            <h3>⚙️ Processing...</h3>
+            <p id="loading-message">Please wait...</p>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let profiles = [];
+        let activeProfile = '';
+        let editingProfile = null;
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProfiles();
+        });
+
+        // Load all profiles
+        function loadProfiles() {
+            Promise.all([
+                fetch('/config/profiles').then(r => r.json()),
+                fetch('/config/active').then(r => r.json())
+            ])
+            .then(([profilesData, activeData]) => {
+                profiles = profilesData.profiles || [];
+                activeProfile = activeData.active_profile || '';
+                document.getElementById('profiles-count').textContent = profiles.length;
+                renderProfilesList();
+            })
+            .catch(error => {
+                console.error('Failed to load profiles:', error);
+                showError('Failed to load profiles: ' + error.message);
+            });
+        }
+
+        // Render the profiles list
+        function renderProfilesList() {
+            const listContainer = document.getElementById('configs-list');
+            listContainer.innerHTML = '';
+
+            if (profiles.length === 0) {
+                listContainer.innerHTML = `
+                    <div style="text-align: center; padding: 2rem;">
+                        <h3>📝 No Profiles Found</h3>
+                        <p>Create your first profile to get started.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort profiles: active first, then alphabetical
+            const sortedProfiles = [...profiles].sort((a, b) => {
+                if (a === activeProfile) return -1;
+                if (b === activeProfile) return 1;
+                return a.localeCompare(b);
+            });
+
+            sortedProfiles.forEach(profileName => {
+                loadProfileDetails(profileName);
+            });
+        }
+
+        // Load details for a specific profile and render it
+        function loadProfileDetails(profileName) {
+            fetch(`/config/details/${profileName}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderProfileItem(profileName, data.config);
+                    } else {
+                        renderErrorProfileItem(profileName, data.error);
+                    }
+                })
+                .catch(error => {
+                    renderErrorProfileItem(profileName, error.message);
+                });
+        }
+
+        // Render a profile item
+        function renderProfileItem(profileName, config) {
+            const isActive = profileName === activeProfile;
+            const listContainer = document.getElementById('configs-list');
+
+            const item = document.createElement('div');
+            item.className = `config-item ${isActive ? 'active' : ''}`;
+            item.id = `profile-${profileName}`;
+
+            item.innerHTML = `
+                <div class="config-header" onclick="toggleProfile('${profileName}')">
+                    <div class="config-info">
+                        <h3 class="config-name">${profileName}</h3>
+                        <div class="config-badges">
+                            ${isActive ? '<span class="config-badge active">ACTIVE</span>' : ''}
+                            <span class="config-badge channels">${config.channels.length} channels</span>
+                        </div>
+                    </div>
+                    <div class="config-actions">
+                        ${!isActive ? `<button class="action-btn activate" onclick="event.stopPropagation(); activateProfile('${profileName}')" title="Activate">✓ Activate</button>` : ''}
+                        <button class="action-btn edit" onclick="event.stopPropagation(); editProfile('${profileName}')" title="Edit">✏️</button>
+                        <button class="action-btn clone" onclick="event.stopPropagation(); cloneProfile('${profileName}')" title="Clone">📄</button>
+                        ${!isActive ? `<button class="action-btn delete" onclick="event.stopPropagation(); deleteProfile('${profileName}')" title="Delete">🗑️</button>` : ''}
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="config-details" id="details-${profileName}">
+                    ${renderProfileDetails(config)}
+                </div>
+            `;
+
+            listContainer.appendChild(item);
+        }
+
+        // Render profile details
+        function renderProfileDetails(config) {
+            const channelsHtml = config.channels.map(channel => {
+                const sources = Array.isArray(channel.sources) ? channel.sources.join(', ') : (channel.sources || 'undefined');
+
+                return `
+                <div style="border: 1px solid var(--pico-border-color); border-radius: var(--pico-border-radius); padding: 0.75rem; margin: 0.5rem 0; background: var(--pico-card-background-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <strong>${channel.name}</strong>
+                            <span class="port-type ${channel.type}" style="background: ${channel.type === 'input' ? 'var(--pico-color-primary)' : 'var(--pico-color-secondary)'}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.7rem;">${channel.type.toUpperCase()}</span>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--pico-muted-color); font-family: monospace; margin-bottom: 0.5rem; word-break: break-all;">${sources}</div>
+                    <div style="display: flex; gap: 1rem; font-size: 0.85rem;">
+                        <div><strong>Volume:</strong> ${channel.volume}x</div>
+                        <div><strong>Delay:</strong> ${channel.delay}ms</div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="form-grid">
+                    <div class="form-section">
+                        <h4>🎤 Audio Channels</h4>
+                        ${channelsHtml}
+                    </div>
+                    <div class="form-section">
+                        <h4>📁 Output Settings</h4>
+                        <div style="background: var(--pico-card-background-color); padding: 0.75rem; border-radius: var(--pico-border-radius); border: 1px solid var(--pico-border-color);">
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Directory:</strong>
+                                <div style="font-family: monospace; font-size: 0.9rem; word-break: break-all;">${config.output_dir}</div>
+                            </div>
+                            <div>
+                                <strong>Format:</strong> ${config.format}
+                            </div>
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Sample Rate:</strong> ${config.sample_rate} Hz
+                            </div>
+                            <div>
+                                <strong>Auto Mix:</strong> <span style="color: ${config.auto_mix ? 'var(--pico-color-success)' : 'var(--pico-color-warning)'};">${config.auto_mix ? '✅ Enabled' : '❌ Disabled'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            `;
+        }
+
+        // Render error profile item
+        function renderErrorProfileItem(profileName, error) {
+            const isActive = profileName === activeProfile;
+            const listContainer = document.getElementById('configs-list');
+
+            const item = document.createElement('div');
+            item.className = `config-item ${isActive ? 'active' : ''}`;
+            item.style.borderColor = 'var(--pico-color-danger)';
+
+            item.innerHTML = `
+                <div class="config-header">
+                    <div class="config-info">
+                        <h3 class="config-name" style="color: var(--pico-color-danger);">${profileName}</h3>
+                        <div class="config-badges">
+                            ${isActive ? '<span class="config-badge active">ACTIVE</span>' : ''}
+                            <span class="config-badge" style="background: var(--pico-color-danger-background); color: var(--pico-color-danger);">ERROR</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding: 1rem; background: var(--pico-color-danger-background); color: var(--pico-color-danger);">
+                    <strong>⚠️ Configuration Error:</strong> ${error}
+                </div>
+            `;
+
+            listContainer.appendChild(item);
+        }
+
+        // Toggle profile details expansion
+        function toggleProfile(profileName) {
+            const item = document.getElementById(`profile-${profileName}`);
+            item.classList.toggle('expanded');
+        }
+
+        // Activate a profile
+        function activateProfile(profileName) {
+            showLoading('Activating profile...');
+
+            const formData = new URLSearchParams();
+            formData.append('profile', profileName);
+
+            fetch('/config/select', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    showSuccess(`Profile "${profileName}" activated successfully`);
+                    activeProfile = profileName;
+                    renderProfilesList(); // Refresh the list
+                } else {
+                    throw new Error(data.error || 'Failed to activate profile');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('Failed to activate profile: ' + error.message);
+            });
+        }
+
+        // Create new profile (placeholder)
+        function createNewProfile() {
+            showError('Profile creation not yet implemented');
+        }
+
+        // Edit profile (placeholder)
+        function editProfile(profileName) {
+            showError('Profile editing not yet implemented');
+        }
+
+        // Clone profile (placeholder)
+        function cloneProfile(profileName) {
+            showError('Profile cloning not yet implemented');
+        }
+
+        // Delete profile (placeholder)
+        function deleteProfile(profileName) {
+            if (confirm(`Are you sure you want to delete the profile "${profileName}"?`)) {
+                showError('Profile deletion not yet implemented');
+            }
+        }
+
+        // Utility functions
+        function showLoading(message) {
+            document.getElementById('loading-message').textContent = message;
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        function showSuccess(message) {
+            const responseArea = document.getElementById('response-area');
+            responseArea.innerHTML = `
+                <article style="background-color: var(--pico-color-success-background);">
+                    <h4>✅ Success</h4>
+                    <p>${message}</p>
+                </article>
+            `;
+            setTimeout(() => {
+                responseArea.innerHTML = '';
+            }, 3000);
+        }
+
+        function showError(message) {
+            const responseArea = document.getElementById('response-area');
+            responseArea.innerHTML = `
+                <article style="background-color: var(--pico-color-danger-background);">
+                    <h4>❌ Error</h4>
+                    <p>${message}</p>
+                </article>
+            `;
+        }
+    </script>
+</body>
+</html>
