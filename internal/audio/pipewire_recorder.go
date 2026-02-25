@@ -706,7 +706,13 @@ func (r *PipeWireRecorder) waitForSpecificPort(portName string, timeout time.Dur
 }
 
 // cleanFileName sanitizes a filename
+// Allows: letters, numbers, spaces, hyphens, underscores
 func (r *PipeWireRecorder) cleanFileName(name string) string {
-	cleaned := strings.ReplaceAll(name, " ", "_")
-	return strings.Trim(cleaned, " \t\n\r")
+	var result strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
+			result.WriteRune(r)
+		}
+	}
+	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
 }

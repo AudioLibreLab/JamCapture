@@ -874,6 +874,17 @@
                 justify-content: center;
             }
         }
+
+        /* Error message styling */
+        .error-message {
+            color: var(--pico-color-danger);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background-color: var(--pico-background-color);
+            border: 1px solid var(--pico-color-danger);
+            border-radius: var(--pico-border-radius);
+        }
     </style>
 </head>
 <body hx-ext="json-enc">
@@ -915,7 +926,8 @@
                 </div>
 
                 <label for="song">Song Name:</label>
-                <input type="text" id="song" name="song" placeholder="Enter song name" required>
+                <input type="text" id="song" name="song" placeholder="Enter song name (letters, numbers, spaces, - and _ only)" required>
+                <div id="song-error" class="error-message" style="display: none;"></div>
             </form>
         </div>
 
@@ -1376,6 +1388,31 @@
                 });
         }
 
+        // Song name validation function
+        function validateSongName(name) {
+            if (!name || name.trim() === '') {
+                return 'Song name cannot be empty';
+            }
+
+            // Check for invalid characters
+            for (let i = 0; i < name.length; i++) {
+                const char = name[i];
+                const isValid = (char >= 'a' && char <= 'z') ||
+                               (char >= 'A' && char <= 'Z') ||
+                               (char >= '0' && char <= '9') ||
+                               char === ' ' || char === '-' || char === '_';
+                if (!isValid) {
+                    return `Invalid character '${char}'. Only letters, numbers, spaces, hyphens (-) and underscores (_) are allowed.`;
+                }
+            }
+
+            if (name.length > 100) {
+                return 'Song name must be 100 characters or less';
+            }
+
+            return null; // Valid
+        }
+
         // Validation function (separate from startRecording)
         function validateFormBeforeStart() {
             const songInput = document.getElementById('song');
@@ -1422,10 +1459,23 @@
                             throw new Error(lockData.error);
                         }
 
-                        // Profile locked successfully - proceed with ready request
+                        // Profile locked successfully - validate song name first
+                        const songName = songInput.value.trim();
+                        const songError = validateSongName(songName);
+                        if (songError) {
+                            document.getElementById('song-error').textContent = songError;
+                            document.getElementById('song-error').style.display = 'block';
+                            songInput.focus();
+                            throw new Error('Invalid song name');
+                        }
+
+                        // Clear any previous error
+                        document.getElementById('song-error').style.display = 'none';
+
+                        // Proceed with ready request
                         const formData = new URLSearchParams();
                         formData.append('profile', profileField.value === 'default' ? '' : profileField.value);
-                        formData.append('song', songInput.value.trim());
+                        formData.append('song', songName);
                         // Auto mix is now configured in the YAML, no longer a form parameter
 
                         // Send request to ready endpoint

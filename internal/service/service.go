@@ -173,6 +173,15 @@ func New(cfg *config.Config, configFile string, logWriter io.Writer) Service {
 func (s *JamCaptureService) StartReady(songName string) error {
 	slog.Debug("Service.StartReady called", "song_name", songName)
 	s.clearLastError() // Clear any previous errors when starting a new operation
+
+	// Validate song name
+	if errMsg := validateFileName(songName); errMsg != "" {
+		err := fmt.Errorf("invalid song name: %s", errMsg)
+		slog.Error("Service.StartReady validation failed", "error", err)
+		s.setLastError(err.Error())
+		return err
+	}
+
 	err := s.recorder.StartReady(songName)
 	if err != nil {
 		slog.Error("Service.StartReady failed", "error", err)
@@ -327,14 +336,34 @@ func (s *JamCaptureService) GetChannelStatus() map[string]string {
 
 func cleanFileName(name string) string {
 	// Remove special characters and replace spaces with underscores
-	// This matches the implementation in the original recorder
+	// Allows: letters, numbers, spaces, hyphens, underscores
 	var result strings.Builder
 	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
 			result.WriteRune(r)
 		}
 	}
 	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
+}
+
+// validateFileName checks if a filename contains only allowed characters
+// Returns an error message if invalid, empty string if valid
+func validateFileName(name string) string {
+	if strings.TrimSpace(name) == "" {
+		return "Song name cannot be empty"
+	}
+
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_') {
+			return fmt.Sprintf("Song name contains invalid character '%c'. Only letters, numbers, spaces, hyphens (-) and underscores (_) are allowed.", r)
+		}
+	}
+
+	if len(name) > 100 {
+		return "Song name must be 100 characters or less"
+	}
+
+	return ""
 }
 
 func (s *JamCaptureService) getOutputExtension() string {

@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/audiolibrelab/jamcapture/internal/config"
@@ -119,8 +118,13 @@ func (m *Mixer) MixWithChannelVolumes(songName string, channelVolumes map[string
 
 func (m *Mixer) cleanFileName(name string) string {
 	// Remove special characters and replace spaces with underscores
-	reg := regexp.MustCompile(`[^a-zA-Z0-9 ]`)
-	cleaned := reg.ReplaceAllString(name, "")
-	return strings.ReplaceAll(strings.TrimSpace(cleaned), " ", "_")
+	// Allows: letters, numbers, spaces, hyphens, underscores
+	var result strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
+			result.WriteRune(r)
+		}
+	}
+	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
 }
 
