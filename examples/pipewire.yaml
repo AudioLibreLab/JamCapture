@@ -1,4 +1,4 @@
-active_config: carla
+active_config: xr18_studio
 audio:
     backend: pipewire
     sample_rate: 48000

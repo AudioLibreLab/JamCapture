@@ -12,19 +12,10 @@
 ./tests/e2e-test.sh
 ```
 
-### Build & Development Commands
+### Build & Web Server Commands
 ```bash
 # Build
 go build
-
-# Quick validation
-./jamcapture --config examples/jamcapture.yaml record test-song
-
-# Complete pipeline
-./jamcapture --config examples/jamcapture.yaml -p rmp song-name
-
-# List audio sources
-./jamcapture sources
 
 # Web server (smartphone control)
 ./jamcapture serve --port 8080
@@ -39,14 +30,13 @@ JamCapture uses a **layered service architecture** with unified interfaces:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      CLIENT LAYER                           │
-├─────────────────────────┬───────────────────────────────────┤
-│     CLI Commands        │        Web Server                 │
-│  - cmd/record.go        │  - internal/server/server.go     │
-│  - cmd/mix.go           │  - REST endpoints                 │
-│  - cmd/play.go          │  - WebUI interface                │
-│  - cmd/run.go           │                                   │
-│  - cmd/sources.go       │                                   │
-└─────────────────────────┴───────────────────────────────────┘
+├─────────────────────────────────────────────────────────────┤
+│                    Web Server                               │
+│  - internal/server/server.go                               │
+│  - REST endpoints                                           │
+│  - WebUI interface                                          │
+│  - Mobile-optimized controls                               │
+└─────────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -154,43 +144,75 @@ pw-jack ffmpeg -f jack -channels 4 -i jamcapture_rec -ar 48000 \
 
 ## ⚙️ Configuration
 
-### Example Configuration (Updated Unified Structure)
+### Modern Configuration Structure (Reference-Based)
 ```yaml
-active_config: "studio"
+active_config: "xr18_studio"
+
+# Global settings applied to all profiles
+audio:
+  backend: pipewire
+  sample_rate: 48000
+
+globals:
+  output:
+    recordings_directory: ~/Audio/JamCapture/Recordings
+    backingtracks_directory: ~/Audio/JamCapture/BackingTracks
+
+# Channel definitions (reusable across profiles)
+definitions:
+  channels:
+    - id: guitar
+      name: guitar
+      sources: ["Scarlett 2i2 3rd Gen:capture_FR"]
+      audioMode: mono
+      type: input
+      volume: 4.0
+      delay: 0
+
+    - id: mic
+      name: mic
+      sources: ["Scarlett 2i2 3rd Gen:capture_FL"]
+      audioMode: mono
+      type: input
+      volume: 3.0
+      delay: 0
+
+    - id: chrome_stereo
+      name: chrome
+      sources: ["Chrome:output_FL", "Chrome:output_FR"]
+      audioMode: stereo
+      type: monitor
+      volume: 0.8
+      delay: 250
+
+# Recording profiles (reference channel definitions)
 configs:
   studio:
-    audio:
-      sample_rate: 48000
+    auto_mix: true
     channels:
-      - name: "guitar"
-        source: "Scarlett 2i2 3rd Gen:capture_FR"
-        type: "input"
-        volume: 4.0
-        delay: 0
-      - name: "mic"
-        source: "Scarlett 2i2 3rd Gen:capture_FL"
-        type: "input"
-        volume: 3.0
-        delay: 0
-      - name: "monitor_left"
-        source: "Chrome:output_FL"
-        type: "monitor"
-        volume: 0.8
-        delay: 250
-      - name: "monitor_right"
-        source: "Chrome:output_FR"
-        type: "monitor"
-        volume: 0.8
-        delay: 250
+      - ref: guitar
+      - ref: mic
+      - ref: chrome_stereo
+        volume: 0.6  # Override default volume
     output:
-      directory: "~/Audio/JamCapture"
-      format: "flac"
+      format: flac
+
+  guitar_only:
+    auto_mix: true
+    channels:
+      - ref: guitar
+        volume: 5.0  # Boost for solo recording
+    output:
+      format: wav
+
+supported_audio_extensions: [flac, wav, mp3]
 ```
 
-### Port Validation Rules
-- **Required**: All ports must include `:` (JACK naming)
-- **Valid**: `"Device:port_name"` or `":port_name"`
-- **Invalid**: `"just_device_name"` (will cause validation error)
+### Configuration Benefits
+- **Reusable Definitions**: Define channels once, reference in multiple profiles
+- **Global Settings**: Audio backend and directories shared across profiles
+- **Profile Inheritance**: Override specific parameters per profile
+- **Volume/Delay Overrides**: Customize channel settings per profile
 
 ---
 
@@ -276,32 +298,21 @@ configs:
 - **Live Monitoring**: Real-time FFmpeg output and system logs
 - **Session Safety**: Profile locking prevents changes during active recordings
 
-## 🚀 Usage Examples
+## 🚀 Web Interface Usage
 
-### Web Interface (Recommended)
+### Starting the Web Server
 ```bash
 # Start smartphone-controlled recording
 ./jamcapture serve --port 8080
 # Access from mobile: http://your-ip:8080
 
-# With configuration
-./jamcapture --config examples/jamcapture.yaml serve
-```
-
-### CLI Operations
-```bash
-# Complete pipeline (record → mix → play)
-./jamcapture --config examples/jamcapture.yaml -p rmp "my-song"
-
-# Individual commands
-./jamcapture record "my-song"
-./jamcapture mix "my-song"
-./jamcapture play "my-song"
+# With specific configuration
+./jamcapture --config examples/pipewire.yaml serve
 ```
 
 ### Web API Integration
 ```bash
-# Modern state-based recording API
+# State-based recording API
 curl -X POST http://localhost:8080/ready -d "song=test&profile=studio&auto_mix=true"
 curl -X POST http://localhost:8080/stop
 
