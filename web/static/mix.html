@@ -312,8 +312,8 @@
             color: var(--pico-color-primary);
         }
 
-        /* Recordings/MKV list styles */
-        .recordings-controls {
+        /* Unified File Browser Styles */
+        .file-browser-controls {
             margin-bottom: 1.5rem;
         }
 
@@ -324,35 +324,38 @@
             margin-bottom: 1rem;
         }
 
-        .recordings-search-input {
+        .file-browser-search-input {
             flex: 1;
             margin: 0;
         }
 
-        .recordings-sort-select {
+        .file-browser-sort-select {
             min-width: 150px;
             margin: 0;
         }
 
-        .recordings-list-container {
-            position: relative;
+        .file-browser-container {
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1rem;
         }
 
-        .recordings-status {
+        .file-browser-status {
             text-align: center;
             padding: 2rem;
             color: var(--pico-muted-color);
             font-style: italic;
         }
 
-        .recordings-list {
+        .file-browser-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1rem;
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
             margin-bottom: 1.5rem;
         }
 
-        .recording-item {
+        .file-item {
             background: var(--pico-background-color);
             border: 1px solid var(--pico-border-color);
             border-radius: var(--pico-border-radius);
@@ -360,40 +363,39 @@
             transition: all 0.2s ease;
         }
 
-        .recording-item:hover {
+        .file-item:hover {
             border-color: var(--pico-color-primary);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .recording-name {
+        .file-name {
             font-weight: bold;
             margin-bottom: 0.5rem;
             word-break: break-all;
         }
 
-        .recording-info {
+        .file-info {
             font-size: 0.85rem;
             color: var(--pico-muted-color);
             margin-bottom: 0.5rem;
         }
 
-        .recording-actions {
+        .file-actions {
             display: flex;
             gap: 0.5rem;
             margin-top: 1rem;
         }
 
-        .recording-actions button {
+        .file-actions button {
             flex: 1;
             font-size: 0.9rem;
             padding: 0.5rem 1rem;
         }
 
-        .recordings-pagination {
+        .file-browser-pagination {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 1.5rem;
             padding-top: 1rem;
             border-top: 1px solid var(--pico-border-color);
         }
@@ -409,11 +411,50 @@
         .pagination-controls {
             display: flex;
             gap: 0.5rem;
+            align-items: center;
         }
 
         .pagination-btn {
             padding: 0.5rem 1rem;
             font-size: 0.9rem;
+        }
+
+        .page-numbers {
+            display: flex;
+            gap: 0.25rem;
+            margin: 0 1rem;
+        }
+
+        .page-number {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
+            border: 1px solid var(--pico-border-color);
+            background: var(--pico-background-color);
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .page-number:hover {
+            border-color: var(--pico-color-primary);
+            background: var(--pico-color-primary-background);
+        }
+
+        .page-number.active {
+            background: var(--pico-color-primary);
+            color: white;
+            border-color: var(--pico-color-primary);
+        }
+
+        .page-number.ellipsis {
+            cursor: default;
+            background: transparent;
+            border: none;
+        }
+
+        .page-number.ellipsis:hover {
+            border: none;
+            background: transparent;
         }
 
         .hidden {
@@ -541,10 +582,10 @@
         <div class="mkv-browser-section">
             <h3>📁 MKV File Browser</h3>
 
-            <div class="recordings-controls">
+            <div class="file-browser-controls">
                 <div class="search-sort-bar">
-                    <input type="text" id="mkv-search" placeholder="🔍 Search MKV files..." class="recordings-search-input">
-                    <select id="mkv-sort" class="recordings-sort-select">
+                    <input type="text" id="mkv-search" placeholder="🔍 Search MKV files..." class="file-browser-search-input">
+                    <select id="mkv-sort" class="file-browser-sort-select">
                         <option value="date_desc">📅 Newest first</option>
                         <option value="date_asc">📅 Oldest first</option>
                         <option value="name_asc">🔤 Name A→Z</option>
@@ -553,20 +594,23 @@
                 </div>
             </div>
 
-            <div class="recordings-list-container">
-                <div id="mkv-status" class="recordings-status">
+            <div class="file-browser-container">
+                <div id="mkv-status" class="file-browser-status">
                     Loading MKV files...
                 </div>
-                <div id="mkv-list" class="recordings-list hidden">
+                <div id="mkv-list" class="file-browser-list hidden">
                     <!-- MKV files will be populated by JavaScript -->
                 </div>
-                <div id="mkv-pagination" class="recordings-pagination hidden">
+                <div id="mkv-pagination" class="file-browser-pagination hidden">
                     <div class="pagination-info">
                         <span id="mkv-pagination-info">Page 1 of 1</span>
                         <span id="mkv-total-info">(0 MKV files)</span>
                     </div>
                     <div class="pagination-controls">
                         <button id="mkv-prev" class="pagination-btn" onclick="previousMKVPage()" disabled>‹ Previous</button>
+                        <div class="page-numbers" id="mkv-page-numbers">
+                            <!-- Page numbers will be populated by JavaScript -->
+                        </div>
                         <button id="mkv-next" class="pagination-btn" onclick="nextMKVPage()" disabled>Next ›</button>
                     </div>
                 </div>
@@ -584,7 +628,7 @@
         let allMKVFiles = [];
         let filteredMKVFiles = [];
         let currentPage = 1;
-        let itemsPerPage = 12;
+        let itemsPerPage = 15;
         let searchQuery = '';
         let currentSort = 'date_desc';
 
@@ -742,15 +786,15 @@
         // Create MKV file element
         function createMKVFileElement(file) {
             const div = document.createElement('div');
-            div.className = 'recording-item';
+            div.className = 'file-item';
 
             div.innerHTML = `
-                <div class="recording-name">${file.name}</div>
-                <div class="recording-info">
+                <div class="file-name">${file.name}</div>
+                <div class="file-info">
                     Size: ${file.size_human}<br>
                     Modified: ${new Date(file.mod_time).toLocaleDateString()}
                 </div>
-                <div class="recording-actions">
+                <div class="file-actions">
                     <button onclick="selectMKVFile('${file.name}')" class="secondary">🎛️ Mix</button>
                 </div>
             `;
@@ -786,7 +830,7 @@
                 });
         }
 
-        // Update MKV pagination controls
+        // Update MKV pagination controls with page numbers
         function updateMKVPagination(page, totalPages, totalItems) {
             document.getElementById('mkv-pagination-info').textContent = `Page ${page} of ${totalPages}`;
             document.getElementById('mkv-total-info').textContent = `(${totalItems} MKV files)`;
@@ -796,6 +840,64 @@
 
             prevBtn.disabled = page <= 1;
             nextBtn.disabled = page >= totalPages;
+
+            // Update page numbers
+            updatePageNumbers('mkv-page-numbers', page, totalPages, goToMKVPage);
+        }
+
+        // Generic function to create page numbers
+        function updatePageNumbers(containerId, currentPage, totalPages, clickHandler) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+
+            // Always show first page
+            if (startPage > 1) {
+                container.appendChild(createPageNumber(1, currentPage, clickHandler));
+                if (startPage > 2) {
+                    container.appendChild(createEllipsis());
+                }
+            }
+
+            // Show page numbers around current page
+            for (let i = startPage; i <= endPage; i++) {
+                container.appendChild(createPageNumber(i, currentPage, clickHandler));
+            }
+
+            // Always show last page
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    container.appendChild(createEllipsis());
+                }
+                container.appendChild(createPageNumber(totalPages, currentPage, clickHandler));
+            }
+        }
+
+        // Create a page number button
+        function createPageNumber(pageNum, currentPage, clickHandler) {
+            const button = document.createElement('button');
+            button.className = `page-number ${pageNum === currentPage ? 'active' : ''}`;
+            button.textContent = pageNum;
+            button.onclick = () => clickHandler(pageNum);
+            return button;
+        }
+
+        // Create ellipsis
+        function createEllipsis() {
+            const ellipsis = document.createElement('span');
+            ellipsis.className = 'page-number ellipsis';
+            ellipsis.textContent = '...';
+            return ellipsis;
+        }
+
+        // Go to specific MKV page
+        function goToMKVPage(page) {
+            currentPage = page;
+            renderMKVList();
         }
 
         // MKV pagination functions

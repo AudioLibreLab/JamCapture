@@ -608,65 +608,216 @@
             min-width: 150px;
         }
 
-        .recordings-list-container {
-            background-color: var(--pico-background-color);
-            border-radius: var(--pico-border-radius);
+        /* Unified File Browser Styles */
+        .file-browser-controls {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-sort-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .file-browser-search-input {
+            flex: 1;
+            margin: 0;
+        }
+
+        .file-browser-sort-select {
+            min-width: 150px;
+            margin: 0;
+        }
+
+        .file-browser-container {
+            background: var(--pico-card-background-color);
             border: 1px solid var(--pico-border-color);
-            overflow: hidden;
+            border-radius: var(--pico-border-radius);
+            padding: 1rem;
+        }
+
+        .file-browser-status {
+            text-align: center;
+            padding: 2rem;
+            color: var(--pico-muted-color);
+            font-style: italic;
+        }
+
+        .file-browser-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .file-item {
+            background: var(--pico-background-color);
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .file-item:hover {
+            border-color: var(--pico-color-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            word-break: break-all;
+        }
+
+        .file-info {
+            font-size: 0.85rem;
+            color: var(--pico-muted-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .file-actions button {
+            flex: 1;
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .file-browser-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid var(--pico-border-color);
+        }
+
+        .pagination-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-size: 0.9rem;
+            color: var(--pico-muted-color);
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .pagination-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .page-numbers {
+            display: flex;
+            gap: 0.25rem;
+            margin: 0 1rem;
+        }
+
+        .page-number {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
+            border: 1px solid var(--pico-border-color);
+            background: var(--pico-background-color);
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .page-number:hover {
+            border-color: var(--pico-color-primary);
+            background: var(--pico-color-primary-background);
+        }
+
+        .page-number.active {
+            background: var(--pico-color-primary);
+            color: white;
+            border-color: var(--pico-color-primary);
+        }
+
+        .page-number.ellipsis {
+            cursor: default;
+            background: transparent;
+            border: none;
+        }
+
+        .page-number.ellipsis:hover {
+            border: none;
+            background: transparent;
+        }
+
+        /* Legacy compatibility - map old classes to new ones */
+        .recordings-list-container {
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1rem;
         }
 
         .recordings-status {
             text-align: center;
-            padding: 1rem;
+            padding: 2rem;
             color: var(--pico-muted-color);
             font-style: italic;
         }
 
         .recordings-list {
-            max-height: 400px;
-            overflow-y: auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
         }
 
         .recording-item {
-            display: grid;
-            grid-template-columns: 1fr auto auto auto auto auto;
-            gap: 0.5rem;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--pico-border-color);
-            transition: background-color 0.3s ease;
+            background: var(--pico-background-color);
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1rem;
+            transition: all 0.2s ease;
         }
 
         .recording-item:hover {
-            background-color: var(--pico-color-primary-background);
-        }
-
-        .recording-item:last-child {
-            border-bottom: none;
+            border-color: var(--pico-color-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .recording-name {
-            font-weight: 500;
-            color: var(--pico-color-primary);
-            word-break: break-word;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            word-break: break-all;
+        }
+
+        .recording-info {
+            font-size: 0.85rem;
+            color: var(--pico-muted-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .recording-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .recording-actions button {
+            flex: 1;
             font-size: 0.9rem;
+            padding: 0.5rem 1rem;
         }
 
-        .recording-size {
-            color: var(--pico-muted-color);
-            font-size: 0.8rem;
-            white-space: nowrap;
-        }
-
-        .recording-date {
-            color: var(--pico-muted-color);
-            font-size: 0.8rem;
-            white-space: nowrap;
-        }
-        .recording-format {
-            color: var(--pico-muted-color);
-            font-size: 0.8rem;
-            white-space: nowrap;
+        .recordings-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid var(--pico-border-color);
         }
 
         .recording-btn {
@@ -977,10 +1128,10 @@
 
                 <!-- Backingtracks Controls -->
                 <div id="backingtracks-controls" class="hidden">
-                    <div class="recordings-controls">
+                    <div class="file-browser-controls">
                         <div class="search-sort-bar">
-                            <input type="text" id="backingtracks-search" placeholder="🔍 Search backing tracks..." class="recordings-search-input">
-                            <select id="backingtracks-sort" class="recordings-sort-select">
+                            <input type="text" id="backingtracks-search" placeholder="🔍 Search backing tracks..." class="file-browser-search-input">
+                            <select id="backingtracks-sort" class="file-browser-sort-select">
                                 <option value="date_desc">📅 Newest first</option>
                                 <option value="date_asc">📅 Oldest first</option>
                                 <option value="name_asc">🔤 Name A→Z</option>
@@ -989,20 +1140,23 @@
                         </div>
                     </div>
 
-                    <div class="recordings-list-container">
-                        <div id="backingtracks-status" class="recordings-status">
+                    <div class="file-browser-container">
+                        <div id="backingtracks-status" class="file-browser-status">
                             Loading backing tracks...
                         </div>
-                        <div id="backingtracks-list" class="recordings-list hidden">
+                        <div id="backingtracks-list" class="file-browser-list hidden">
                             <!-- Backing tracks will be populated by JavaScript -->
                         </div>
-                        <div id="backingtracks-pagination" class="recordings-pagination hidden">
+                        <div id="backingtracks-pagination" class="file-browser-pagination hidden">
                             <div class="pagination-info">
                                 <span id="backingtracks-pagination-info">Page 1 of 1</span>
                                 <span id="backingtracks-total-info">(0 backing tracks)</span>
                             </div>
                             <div class="pagination-controls">
                                 <button id="backingtracks-prev" class="pagination-btn" onclick="previousBackingtracksPage()" disabled>‹ Previous</button>
+                                <div class="page-numbers" id="backingtracks-page-numbers">
+                                    <!-- Page numbers will be populated by JavaScript -->
+                                </div>
                                 <button id="backingtracks-next" class="pagination-btn" onclick="nextBackingtracksPage()" disabled>Next ›</button>
                             </div>
                         </div>
@@ -1023,10 +1177,10 @@
 
                 <!-- All Recordings Controls -->
                 <div id="all-recordings-controls" class="hidden">
-                    <div class="recordings-controls">
+                    <div class="file-browser-controls">
                         <div class="search-sort-bar">
-                            <input type="text" id="recordings-search" placeholder="🔍 Search recordings..." class="recordings-search-input">
-                            <select id="recordings-sort" class="recordings-sort-select">
+                            <input type="text" id="recordings-search" placeholder="🔍 Search recordings..." class="file-browser-search-input">
+                            <select id="recordings-sort" class="file-browser-sort-select">
                                 <option value="date_desc">📅 Newest first</option>
                                 <option value="date_asc">📅 Oldest first</option>
                                 <option value="name_asc">🔤 Name A→Z</option>
@@ -1035,20 +1189,23 @@
                         </div>
                     </div>
 
-                    <div class="recordings-list-container">
-                        <div id="recordings-status" class="recordings-status">
+                    <div class="file-browser-container">
+                        <div id="recordings-status" class="file-browser-status">
                             Loading recordings...
                         </div>
-                        <div id="recordings-list" class="recordings-list hidden">
+                        <div id="recordings-list" class="file-browser-list hidden">
                             <!-- Recordings will be populated by JavaScript -->
                         </div>
-                        <div id="recordings-pagination" class="recordings-pagination hidden">
+                        <div id="recordings-pagination" class="file-browser-pagination hidden">
                             <div class="pagination-info">
                                 <span id="pagination-info-text">Page 1 of 1</span>
                                 <span id="pagination-total-text">(0 recordings)</span>
                             </div>
                             <div class="pagination-controls">
                                 <button id="pagination-prev" class="pagination-btn" onclick="previousRecordingsPage()" disabled>‹ Previous</button>
+                                <div class="page-numbers" id="recordings-page-numbers">
+                                    <!-- Page numbers will be populated by JavaScript -->
+                                </div>
                                 <button id="pagination-next" class="pagination-btn" onclick="nextRecordingsPage()" disabled>Next ›</button>
                             </div>
                         </div>
@@ -1090,7 +1247,7 @@
         let currentSort = 'date_desc';
         let searchQuery = '';
         let currentPage = 1;
-        const ITEMS_PER_PAGE = 10;
+        const ITEMS_PER_PAGE = 15;
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
@@ -2155,35 +2312,90 @@
         // Create HTML element for a recording
         function createRecordingElement(recording) {
             const div = document.createElement('div');
-            div.className = 'recording-item';
+            div.className = 'file-item';
 
             // Format date for display
             const date = new Date(recording.mod_time);
             const formattedDate = date.toLocaleDateString('en-US', {
-                month: 'numeric',
+                month: 'short',
                 day: 'numeric',
-                year: '2-digit'
+                year: 'numeric'
             });
 
             div.innerHTML = `
-                <span class="recording-name">📁 ${recording.name}</span>
-                <span class="recording-size">${recording.size_human}</span>
-                <span class="recording-date">${formattedDate}</span>
-                <button class="recording-btn play" onclick="playRecording('${recording.name}')" title="Play">
-                    ▶️
-                </button>
-                <button class="recording-btn backing" onclick="setAsBackingTrack('${recording.name}')" title="Set as backing track">
-                    🎵
-                </button>
-                <button class="recording-btn download" onclick="downloadRecording('${recording.name}')" title="Download">
-                    📥
-                </button>
+                <div class="file-name">${recording.name}</div>
+                <div class="file-info">
+                    Size: ${recording.size_human}<br>
+                    Modified: ${formattedDate}
+                </div>
+                <div class="file-actions">
+                    <button onclick="playRecording('${recording.name}')" class="secondary">▶️ Play</button>
+                    <button onclick="setAsBackingTrack('${recording.name}')" class="secondary">🎵 Backing</button>
+                    <button onclick="downloadRecording('${recording.name}')" class="secondary">📥 Download</button>
+                </div>
             `;
 
             return div;
         }
 
-        // Update pagination controls
+        // Generic function to create page numbers
+        function updatePageNumbers(containerId, currentPage, totalPages, clickHandler) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+
+            // Always show first page
+            if (startPage > 1) {
+                container.appendChild(createPageNumber(1, currentPage, clickHandler));
+                if (startPage > 2) {
+                    container.appendChild(createEllipsis());
+                }
+            }
+
+            // Show page numbers around current page
+            for (let i = startPage; i <= endPage; i++) {
+                container.appendChild(createPageNumber(i, currentPage, clickHandler));
+            }
+
+            // Always show last page
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    container.appendChild(createEllipsis());
+                }
+                container.appendChild(createPageNumber(totalPages, currentPage, clickHandler));
+            }
+        }
+
+        // Create a page number button
+        function createPageNumber(pageNum, currentPage, clickHandler) {
+            const button = document.createElement('button');
+            button.className = `page-number ${pageNum === currentPage ? 'active' : ''}`;
+            button.textContent = pageNum;
+            button.onclick = () => clickHandler(pageNum);
+            return button;
+        }
+
+        // Create ellipsis
+        function createEllipsis() {
+            const ellipsis = document.createElement('span');
+            ellipsis.className = 'page-number ellipsis';
+            ellipsis.textContent = '...';
+            return ellipsis;
+        }
+
+        // Go to specific recordings page
+        function goToRecordingsPage(page) {
+            currentPage = page;
+            renderRecordingsList();
+        }
+
+        // Update pagination controls with page numbers
         function updateRecordingsPagination(totalPages) {
             const infoText = document.getElementById('pagination-info-text');
             const totalText = document.getElementById('pagination-total-text');
@@ -2195,6 +2407,9 @@
 
             prevBtn.disabled = currentPage <= 1;
             nextBtn.disabled = currentPage >= totalPages;
+
+            // Update page numbers
+            updatePageNumbers('recordings-page-numbers', currentPage, totalPages, goToRecordingsPage);
         }
 
         // Navigate to previous page
@@ -2327,7 +2542,7 @@
         // Global variables for backing tracks
         let currentBackingtracks = [];
         let filteredBackingtracks = [];
-        let backingtracksPaginationInfo = { currentPage: 1, totalPages: 1, itemsPerPage: 10 };
+        let backingtracksPaginationInfo = { currentPage: 1, totalPages: 1, itemsPerPage: 15 };
 
         // Load backing tracks from API
         function loadBackingtracks(context = 'user') {
@@ -2588,7 +2803,13 @@
             });
         }
 
-        // Update backing tracks pagination
+        // Go to specific backing tracks page
+        function goToBackingtracksPage(page) {
+            backingtracksPaginationInfo.currentPage = page;
+            renderBackingtracksList();
+        }
+
+        // Update backing tracks pagination with page numbers
         function updateBackingtracksPagination() {
             const totalItems = filteredBackingtracks.length;
             const totalPages = Math.ceil(totalItems / backingtracksPaginationInfo.itemsPerPage);
@@ -2615,6 +2836,9 @@
             if (nextBtn) {
                 nextBtn.disabled = backingtracksPaginationInfo.currentPage >= totalPages;
             }
+
+            // Update page numbers
+            updatePageNumbers('backingtracks-page-numbers', backingtracksPaginationInfo.currentPage, totalPages, goToBackingtracksPage);
         }
 
         // Pagination functions
