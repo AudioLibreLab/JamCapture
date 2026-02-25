@@ -252,25 +252,172 @@
             background: var(--pico-color-warning-hover);
         }
 
-        /* Audio player */
-        .audio-player {
+        /* Audio player section */
+        .audio-player-section {
             background: var(--pico-card-background-color);
-            padding: 1.5rem;
-            border-radius: var(--pico-border-radius);
             border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1.5rem;
             margin-bottom: 2rem;
-            display: none; /* Initially hidden */
         }
 
-        .audio-player h3 {
+        .audio-player-section h3 {
             margin-top: 0;
             margin-bottom: 1rem;
             color: var(--pico-color-primary);
         }
 
-        .audio-controls {
+        .player-controls {
+            width: 100%;
+        }
+
+        .audio-player-container {
+            background: var(--pico-background-color);
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1rem;
+        }
+
+        .player-status {
+            margin-bottom: 1rem;
+            font-style: italic;
+            color: var(--pico-muted-color);
+        }
+
+        .custom-audio-player {
             width: 100%;
             margin-bottom: 1rem;
+        }
+
+        .file-info {
+            font-size: 0.9rem;
+            color: var(--pico-muted-color);
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--pico-border-color);
+        }
+
+        /* MKV Browser Section */
+        .mkv-browser-section {
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .mkv-browser-section h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--pico-color-primary);
+        }
+
+        /* Recordings/MKV list styles */
+        .recordings-controls {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-sort-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .recordings-search-input {
+            flex: 1;
+            margin: 0;
+        }
+
+        .recordings-sort-select {
+            min-width: 150px;
+            margin: 0;
+        }
+
+        .recordings-list-container {
+            position: relative;
+        }
+
+        .recordings-status {
+            text-align: center;
+            padding: 2rem;
+            color: var(--pico-muted-color);
+            font-style: italic;
+        }
+
+        .recordings-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .recording-item {
+            background: var(--pico-background-color);
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .recording-item:hover {
+            border-color: var(--pico-color-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .recording-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            word-break: break-all;
+        }
+
+        .recording-info {
+            font-size: 0.85rem;
+            color: var(--pico-muted-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .recording-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .recording-actions button {
+            flex: 1;
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .recordings-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--pico-border-color);
+        }
+
+        .pagination-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-size: 0.9rem;
+            color: var(--pico-muted-color);
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .pagination-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .hidden {
+            display: none !important;
         }
 
         /* Response messages */
@@ -351,50 +498,79 @@
         <!-- Page Header -->
         <header>
             <h1>🎛️ Mix Interface</h1>
-            <p>Select an MKV file from your backing tracks, adjust individual track volumes, and create custom mixes.</p>
+            <p>Select an MKV file, adjust individual track volumes, and create custom mixes.</p>
         </header>
 
         <!-- Response Area -->
         <div id="response-area" class="response-area"></div>
 
-        <!-- Mix Controls -->
-        <div class="mix-controls">
-            <!-- File Selector -->
-            <div class="file-selector">
-                <h3>📁 Select MKV File</h3>
-                <select id="file-selector" onchange="loadMKVFile()">
-                    <option value="">-- Select an MKV file --</option>
-                </select>
-                <div id="file-info" class="file-info" style="display: none;">
-                    <strong>File:</strong> <span id="selected-filename"></span><br>
-                    <strong>Size:</strong> <span id="selected-filesize"></span><br>
-                    <strong>Modified:</strong> <span id="selected-modtime"></span>
-                </div>
-            </div>
+        <!-- Audio Player Section (Top) -->
+        <div class="audio-player-section">
+            <h3>🎧 Mix Player</h3>
 
-            <!-- Track Mixer -->
-            <div id="track-mixer" class="track-mixer">
-                <h3>🎚️ Track Mixer</h3>
-                <div id="track-list" class="track-list">
-                    <!-- Track controls will be dynamically inserted here -->
-                </div>
-
-                <!-- Mix Actions -->
-                <div class="mix-actions">
-                    <button id="reset-button" class="mix-button reset-button" onclick="resetVolumes()">🔄 Reset Volumes</button>
-                    <button id="mix-button" class="mix-button" onclick="createMix()">🎛️ Create Mix</button>
+            <div class="player-controls">
+                <!-- Audio Player Container -->
+                <div class="audio-player-container">
+                    <div id="player-status" class="player-status">
+                        Loading last mixed file...
+                    </div>
+                    <audio id="audio-player" class="custom-audio-player hidden" controls preload="metadata">
+                        Your browser does not support the audio element.
+                    </audio>
+                    <div id="audio-error" class="hidden" style="color: var(--pico-color-danger); margin-top: 0.5rem; font-size: 0.9rem;"></div>
+                    <div id="file-info-player" class="file-info hidden"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Audio Player -->
-        <div id="audio-player" class="audio-player">
-            <h3>🔊 Generated Mix</h3>
-            <audio id="audio-controls" class="audio-controls" controls>
-                <source id="audio-source" type="audio/flac">
-                Your browser does not support the audio element.
-            </audio>
-            <p><strong>File:</strong> <span id="generated-filename"></span></p>
+        <!-- Track Mixer Controls (Middle) -->
+        <div id="track-mixer" class="track-mixer">
+            <h3>🎚️ Track Mixer</h3>
+            <div id="track-list" class="track-list">
+                <!-- Track controls will be dynamically inserted here -->
+            </div>
+
+            <!-- Mix Actions -->
+            <div class="mix-actions">
+                <button id="reset-button" class="mix-button reset-button" onclick="resetVolumes()">🔄 Reset Volumes</button>
+                <button id="mix-button" class="mix-button" onclick="createMix()">🎛️ Create Mix</button>
+            </div>
+        </div>
+
+        <!-- MKV File Browser Section (Bottom) -->
+        <div class="mkv-browser-section">
+            <h3>📁 MKV File Browser</h3>
+
+            <div class="recordings-controls">
+                <div class="search-sort-bar">
+                    <input type="text" id="mkv-search" placeholder="🔍 Search MKV files..." class="recordings-search-input">
+                    <select id="mkv-sort" class="recordings-sort-select">
+                        <option value="date_desc">📅 Newest first</option>
+                        <option value="date_asc">📅 Oldest first</option>
+                        <option value="name_asc">🔤 Name A→Z</option>
+                        <option value="name_desc">🔤 Name Z→A</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="recordings-list-container">
+                <div id="mkv-status" class="recordings-status">
+                    Loading MKV files...
+                </div>
+                <div id="mkv-list" class="recordings-list hidden">
+                    <!-- MKV files will be populated by JavaScript -->
+                </div>
+                <div id="mkv-pagination" class="recordings-pagination hidden">
+                    <div class="pagination-info">
+                        <span id="mkv-pagination-info">Page 1 of 1</span>
+                        <span id="mkv-total-info">(0 MKV files)</span>
+                    </div>
+                    <div class="pagination-controls">
+                        <button id="mkv-prev" class="pagination-btn" onclick="previousMKVPage()" disabled>‹ Previous</button>
+                        <button id="mkv-next" class="pagination-btn" onclick="nextMKVPage()" disabled>Next ›</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -404,55 +580,187 @@
         let trackAnalysis = null;
         let trackVolumes = {};
 
+        // MKV files pagination state
+        let allMKVFiles = [];
+        let filteredMKVFiles = [];
+        let currentPage = 1;
+        let itemsPerPage = 12;
+        let searchQuery = '';
+        let currentSort = 'date_desc';
+
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
+            loadLastMixedFile();
             loadMKVFiles();
+            setupMKVEventListeners();
         });
+
+        // Load last mixed file and set up player
+        function loadLastMixedFile() {
+            fetch('/api/mix/last-mixed')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.last_mixed_file && data.exists) {
+                        setupAudioPlayer(data.last_mixed_file, data);
+                    } else {
+                        document.getElementById('player-status').textContent = 'No recent mixes found';
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to load last mixed file:', error);
+                    document.getElementById('player-status').textContent = 'Error loading last mix';
+                });
+        }
+
+        // Set up audio player with file
+        function setupAudioPlayer(filename, fileInfo) {
+            const playerStatus = document.getElementById('player-status');
+            const audioPlayer = document.getElementById('audio-player');
+            const fileInfoDiv = document.getElementById('file-info-player');
+
+            playerStatus.textContent = `Last Mixed: ${filename}`;
+            audioPlayer.src = `/api/mix/stream/${encodeURIComponent(filename)}`;
+            audioPlayer.classList.remove('hidden');
+
+            if (fileInfo) {
+                fileInfoDiv.innerHTML = `
+                    <strong>File:</strong> ${filename}<br>
+                    <strong>Size:</strong> ${fileInfo.size_human || ''}<br>
+                    <strong>Modified:</strong> ${fileInfo.mod_time || ''}
+                `;
+                fileInfoDiv.classList.remove('hidden');
+            }
+        }
 
         // Load available MKV files
         function loadMKVFiles() {
+            document.getElementById('mkv-status').textContent = 'Loading MKV files...';
+
             fetch('/api/mix/files')
                 .then(response => response.json())
                 .then(data => {
-                    const selector = document.getElementById('file-selector');
-
-                    // Clear existing options except the first
-                    selector.innerHTML = '<option value="">-- Select an MKV file --</option>';
-
                     if (data.files && data.files.length > 0) {
-                        data.files.forEach(file => {
-                            const option = document.createElement('option');
-                            option.value = file.name;
-                            option.textContent = `${file.name} (${file.size_human})`;
-                            selector.appendChild(option);
-                        });
+                        allMKVFiles = data.files;
+                        filterAndSortMKVFiles();
+                        renderMKVList();
                     } else {
-                        const option = document.createElement('option');
-                        option.textContent = 'No MKV files found';
-                        option.disabled = true;
-                        selector.appendChild(option);
+                        document.getElementById('mkv-status').textContent = 'No MKV files found';
+                        document.getElementById('mkv-list').classList.add('hidden');
+                        document.getElementById('mkv-pagination').classList.add('hidden');
                     }
                 })
                 .catch(error => {
                     console.error('Failed to load MKV files:', error);
-                    showAlert('Failed to load MKV files: ' + error.message, 'error');
+                    document.getElementById('mkv-status').textContent = 'Error loading MKV files';
                 });
         }
 
-        // Load selected MKV file and analyze tracks
-        function loadMKVFile() {
-            const selector = document.getElementById('file-selector');
-            const filename = selector.value;
+        // Setup event listeners for MKV search and sort
+        function setupMKVEventListeners() {
+            const searchInput = document.getElementById('mkv-search');
+            const sortSelect = document.getElementById('mkv-sort');
 
-            if (!filename) {
-                hideTrackMixer();
+            searchInput.addEventListener('input', handleMKVSearch);
+            sortSelect.addEventListener('change', handleMKVSort);
+        }
+
+        // Handle MKV search input
+        function handleMKVSearch(event) {
+            searchQuery = event.target.value.toLowerCase();
+            currentPage = 1; // Reset to first page
+            filterAndSortMKVFiles();
+            renderMKVList();
+        }
+
+        // Handle MKV sort change
+        function handleMKVSort(event) {
+            currentSort = event.target.value;
+            currentPage = 1; // Reset to first page
+            filterAndSortMKVFiles();
+            renderMKVList();
+        }
+
+        // Filter and sort MKV files based on search and sort criteria
+        function filterAndSortMKVFiles() {
+            // Filter by search query
+            filteredMKVFiles = allMKVFiles.filter(file => {
+                return file.name.toLowerCase().includes(searchQuery);
+            });
+
+            // Sort the filtered results
+            filteredMKVFiles.sort((a, b) => {
+                switch (currentSort) {
+                    case 'date_asc':
+                        return new Date(a.mod_time) - new Date(b.mod_time);
+                    case 'date_desc':
+                        return new Date(b.mod_time) - new Date(a.mod_time);
+                    case 'name_asc':
+                        return a.name.localeCompare(b.name);
+                    case 'name_desc':
+                        return b.name.localeCompare(a.name);
+                    default:
+                        return 0;
+                }
+            });
+        }
+
+        // Render MKV files list with pagination
+        function renderMKVList() {
+            const mkvList = document.getElementById('mkv-list');
+            const mkvStatus = document.getElementById('mkv-status');
+            const mkvPagination = document.getElementById('mkv-pagination');
+
+            if (filteredMKVFiles.length === 0) {
+                mkvStatus.textContent = searchQuery ? 'No matching MKV files found' : 'No MKV files found';
+                mkvList.classList.add('hidden');
+                mkvPagination.classList.add('hidden');
                 return;
             }
 
-            selectedFile = filename;
+            // Hide status, show list
+            mkvStatus.classList.add('hidden');
+            mkvList.classList.remove('hidden');
+            mkvPagination.classList.remove('hidden');
 
-            // Show file info
-            showFileInfo(filename);
+            // Calculate pagination
+            const totalPages = Math.ceil(filteredMKVFiles.length / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, filteredMKVFiles.length);
+            const currentFiles = filteredMKVFiles.slice(startIndex, endIndex);
+
+            // Render files
+            mkvList.innerHTML = '';
+            currentFiles.forEach(file => {
+                const fileElement = createMKVFileElement(file);
+                mkvList.appendChild(fileElement);
+            });
+
+            // Update pagination
+            updateMKVPagination(currentPage, totalPages, filteredMKVFiles.length);
+        }
+
+        // Create MKV file element
+        function createMKVFileElement(file) {
+            const div = document.createElement('div');
+            div.className = 'recording-item';
+
+            div.innerHTML = `
+                <div class="recording-name">${file.name}</div>
+                <div class="recording-info">
+                    Size: ${file.size_human}<br>
+                    Modified: ${new Date(file.mod_time).toLocaleDateString()}
+                </div>
+                <div class="recording-actions">
+                    <button onclick="selectMKVFile('${file.name}')" class="secondary">🎛️ Mix</button>
+                </div>
+            `;
+
+            return div;
+        }
+
+        // Select MKV file for mixing
+        function selectMKVFile(filename) {
+            selectedFile = filename;
 
             // Analyze the MKV file
             showAlert('Analyzing MKV file tracks...', 'info');
@@ -464,6 +772,9 @@
                         trackAnalysis = data.analysis;
                         displayTrackMixer();
                         showAlert(`Loaded ${data.analysis.track_count} tracks from ${filename}`, 'success');
+
+                        // Scroll to track mixer
+                        document.getElementById('track-mixer').scrollIntoView({ behavior: 'smooth' });
                     } else {
                         throw new Error(data.error || 'Failed to analyze MKV file');
                     }
@@ -475,200 +786,174 @@
                 });
         }
 
-        // Show file information
-        function showFileInfo(filename) {
-            const fileInfo = document.getElementById('file-info');
-            const filenameSpan = document.getElementById('selected-filename');
+        // Update MKV pagination controls
+        function updateMKVPagination(page, totalPages, totalItems) {
+            document.getElementById('mkv-pagination-info').textContent = `Page ${page} of ${totalPages}`;
+            document.getElementById('mkv-total-info').textContent = `(${totalItems} MKV files)`;
 
-            filenameSpan.textContent = filename;
-            fileInfo.style.display = 'block';
+            const prevBtn = document.getElementById('mkv-prev');
+            const nextBtn = document.getElementById('mkv-next');
 
-            // Get additional file info from the selector data
-            const selector = document.getElementById('file-selector');
-            const selectedOption = selector.options[selector.selectedIndex];
-            if (selectedOption && selectedOption.textContent.includes('(')) {
-                const sizeMatch = selectedOption.textContent.match(/\(([^)]+)\)/);
-                if (sizeMatch) {
-                    document.getElementById('selected-filesize').textContent = sizeMatch[1];
-                }
+            prevBtn.disabled = page <= 1;
+            nextBtn.disabled = page >= totalPages;
+        }
+
+        // MKV pagination functions
+        function previousMKVPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderMKVList();
+            }
+        }
+
+        function nextMKVPage() {
+            const totalPages = Math.ceil(filteredMKVFiles.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderMKVList();
             }
         }
 
         // Display track mixer interface
         function displayTrackMixer() {
+            const trackMixer = document.getElementById('track-mixer');
             const trackList = document.getElementById('track-list');
-            const mixer = document.getElementById('track-mixer');
+
+            trackMixer.style.display = 'block';
 
             // Clear existing tracks
             trackList.innerHTML = '';
             trackVolumes = {};
 
-            if (!trackAnalysis || !trackAnalysis.tracks || trackAnalysis.tracks.length === 0) {
-                trackList.innerHTML = '<p>No tracks found in this file.</p>';
+            if (!trackAnalysis || !trackAnalysis.tracks) {
+                showAlert('No track information available', 'error');
                 return;
             }
 
             // Create track controls
-            trackAnalysis.tracks.forEach(track => {
-                const trackDiv = createTrackControl(track);
-                trackList.appendChild(trackDiv);
-            });
+            trackAnalysis.tracks.forEach((track, index) => {
+                const trackElement = createTrackElement(track, index);
+                trackList.appendChild(trackElement);
 
-            // Show mixer
-            mixer.style.display = 'block';
+                // Initialize volume
+                trackVolumes[track.name || `Track ${index + 1}`] = 1.0;
+            });
         }
 
-        // Create individual track control
-        function createTrackControl(track) {
-            const trackDiv = document.createElement('div');
-            trackDiv.className = 'track-item';
-            trackDiv.id = `track-${track.index}`;
+        // Hide track mixer
+        function hideTrackMixer() {
+            const trackMixer = document.getElementById('track-mixer');
+            trackMixer.style.display = 'none';
+        }
 
-            // Initialize volume to 100%
-            trackVolumes[track.title] = 1.0;
+        // Create track element with volume control
+        function createTrackElement(track, index) {
+            const trackName = track.name || `Track ${index + 1}`;
+            const div = document.createElement('div');
+            div.className = 'track-item';
 
-            trackDiv.innerHTML = `
+            div.innerHTML = `
                 <div class="track-header">
-                    <div>
-                        <h4 class="track-name">${track.title}</h4>
-                        <div class="track-channels">${track.channels} channel${track.channels !== 1 ? 's' : ''}</div>
+                    <h4 class="track-name">🎵 ${trackName}</h4>
+                    <div class="volume-display">
+                        <span class="volume-value">100%</span>
                     </div>
                 </div>
-
+                <div class="track-info">
+                    <span class="track-detail">Channel: ${index + 1}</span>
+                </div>
                 <div class="volume-control">
-                    <div class="volume-display">
-                        <label for="volume-${track.index}">Volume:</label>
-                        <span class="volume-value" id="volume-value-${track.index}">100%</span>
-                    </div>
+                    <label for="volume-${index}" class="volume-label">Volume:</label>
                     <input type="range"
-                           id="volume-${track.index}"
+                           id="volume-${index}"
                            class="volume-slider"
                            min="0"
-                           max="200"
-                           value="100"
-                           oninput="updateVolume('${track.title}', ${track.index}, this.value)">
-
-                    <div class="volume-presets">
-                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 0)">Mute</button>
-                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 50)">50%</button>
-                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 100)">100%</button>
-                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 150)">150%</button>
-                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 200)">200%</button>
+                           max="2"
+                           step="0.1"
+                           value="1.0"
+                           oninput="updateTrackVolume('${trackName}', this.value, ${index})">
+                    <div class="volume-labels">
+                        <span>0%</span>
+                        <span>100%</span>
+                        <span>200%</span>
                     </div>
                 </div>
             `;
 
-            return trackDiv;
+            return div;
         }
 
         // Update track volume
-        function updateVolume(trackTitle, trackIndex, value) {
-            const volume = parseInt(value);
-            const volumePercent = volume / 100.0;
-
-            // Update internal state
-            trackVolumes[trackTitle] = volumePercent;
+        function updateTrackVolume(trackName, value, index) {
+            trackVolumes[trackName] = parseFloat(value);
 
             // Update display
-            document.getElementById(`volume-value-${trackIndex}`).textContent = `${volume}%`;
-
-            console.log(`Updated ${trackTitle} volume to ${volumePercent}`);
-        }
-
-        // Set specific volume value
-        function setVolume(trackTitle, trackIndex, volume) {
-            const slider = document.getElementById(`volume-${trackIndex}`);
-            slider.value = volume;
-            updateVolume(trackTitle, trackIndex, volume);
+            const volumeValue = document.querySelector(`#volume-${index}`).parentNode.parentNode.querySelector('.volume-value');
+            volumeValue.textContent = Math.round(value * 100) + '%';
         }
 
         // Reset all volumes to 100%
         function resetVolumes() {
-            if (!trackAnalysis || !trackAnalysis.tracks) return;
-
-            trackAnalysis.tracks.forEach(track => {
-                setVolume(track.title, track.index, 100);
+            Object.keys(trackVolumes).forEach((trackName, index) => {
+                trackVolumes[trackName] = 1.0;
+                const slider = document.getElementById(`volume-${index}`);
+                if (slider) {
+                    slider.value = '1.0';
+                    updateTrackVolume(trackName, '1.0', index);
+                }
             });
-
-            showAlert('All volumes reset to 100%', 'success');
+            showAlert('All volumes reset to 100%', 'info');
         }
 
-        // Create custom mix
+        // Create mix with current volume settings
         function createMix() {
-            if (!selectedFile) {
+            if (!selectedFile || !trackAnalysis) {
                 showAlert('Please select an MKV file first', 'error');
                 return;
             }
 
-            if (Object.keys(trackVolumes).length === 0) {
-                showAlert('No tracks available for mixing', 'error');
-                return;
-            }
-
-            const mixButton = document.getElementById('mix-button');
-            mixButton.disabled = true;
-            mixButton.textContent = '🎛️ Creating Mix...';
-
-            showAlert('Creating custom mix... This may take a few moments.', 'info');
-
-            const payload = {
+            const data = {
                 filename: selectedFile,
                 track_volumes: trackVolumes
             };
+
+            showAlert('Creating custom mix...', 'info');
 
             fetch('/api/mix/render', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(data)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    showAudioPlayer(data.output_file, data.stream_url);
-                } else {
-                    throw new Error(data.error || 'Failed to create mix');
-                }
-            })
-            .catch(error => {
-                console.error('Failed to create mix:', error);
-                showAlert('Failed to create mix: ' + error.message, 'error');
-            })
-            .finally(() => {
-                mixButton.disabled = false;
-                mixButton.textContent = '🎛️ Create Mix';
-            });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert(`Mix created successfully: ${data.output_filename}`, 'success');
+
+                        // Update the player with the new mix
+                        setupAudioPlayer(data.output_filename, {
+                            size_human: 'Just created',
+                            mod_time: new Date().toLocaleString()
+                        });
+
+                        // Scroll to player
+                        document.querySelector('.audio-player-section').scrollIntoView({ behavior: 'smooth' });
+                    } else {
+                        throw new Error(data.error || 'Failed to create mix');
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to create mix:', error);
+                    showAlert('Failed to create mix: ' + error.message, 'error');
+                });
         }
 
-        // Show audio player with generated mix
-        function showAudioPlayer(filename, streamUrl) {
-            const player = document.getElementById('audio-player');
-            const audio = document.getElementById('audio-controls');
-            const source = document.getElementById('audio-source');
-            const filenameSpan = document.getElementById('generated-filename');
-
-            source.src = streamUrl;
-            audio.load();
-            filenameSpan.textContent = filename;
-            player.style.display = 'block';
-        }
-
-        // Hide track mixer
-        function hideTrackMixer() {
-            document.getElementById('track-mixer').style.display = 'none';
-            document.getElementById('file-info').style.display = 'none';
-            document.getElementById('audio-player').style.display = 'none';
-        }
-
-        // Utility function to show alerts
-        function showAlert(message, type = 'info') {
+        // Show alert message
+        function showAlert(message, type) {
             const responseArea = document.getElementById('response-area');
-            const alertClass = `alert-${type}`;
-
             responseArea.innerHTML = `
-                <div class="alert ${alertClass}">
+                <div class="alert alert-${type}">
                     ${message}
                 </div>
             `;
@@ -679,6 +964,32 @@
                     responseArea.innerHTML = '';
                 }, 5000);
             }
+        }
+
+        // Display track mixer interface (updated)
+        function displayTrackMixer() {
+            const trackMixer = document.getElementById('track-mixer');
+            const trackList = document.getElementById('track-list');
+
+            trackMixer.style.display = 'block';
+
+            // Clear existing tracks
+            trackList.innerHTML = '';
+            trackVolumes = {};
+
+            if (!trackAnalysis || !trackAnalysis.tracks) {
+                showAlert('No track information available', 'error');
+                return;
+            }
+
+            // Create track controls
+            trackAnalysis.tracks.forEach((track, index) => {
+                const trackElement = createTrackElement(track, index);
+                trackList.appendChild(trackElement);
+
+                // Initialize volume
+                trackVolumes[track.name || `Track ${index + 1}`] = 1.0;
+            });
         }
     </script>
 </body>

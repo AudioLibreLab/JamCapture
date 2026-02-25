@@ -58,6 +58,7 @@ type Service interface {
 	ListMKVFiles() ([]MKVFileInfo, error)
 	AnalyzeMKVFile(filename string) (*MKVAnalysis, error)
 	MixWithTrackVolumes(filename string, trackVolumes map[string]float64) error
+	GetLastMixedFile() string
 }
 
 // RecordingStatus represents the current recording state
@@ -146,6 +147,9 @@ type JamCaptureService struct {
 	configFile string
 	recorder   audio.Recorder
 	logWriter  io.Writer
+
+	// Configuration management
+	configMutex sync.RWMutex
 
 	// Backing track management
 	backingtrackMutex sync.RWMutex
@@ -364,6 +368,24 @@ func validateFileName(name string) string {
 	}
 
 	return ""
+}
+
+// updateLastMixedFile updates the last mixed file in configuration
+func (s *JamCaptureService) updateLastMixedFile(filename string) error {
+	s.configMutex.Lock()
+	defer s.configMutex.Unlock()
+
+	// Update the configuration
+	s.cfg.Output.LastMixedFile = filename
+	slog.Debug("Updated last mixed file", "filename", filename)
+	return nil
+}
+
+// GetLastMixedFile returns the last mixed file from configuration
+func (s *JamCaptureService) GetLastMixedFile() string {
+	s.configMutex.RLock()
+	defer s.configMutex.RUnlock()
+	return s.cfg.Output.LastMixedFile
 }
 
 func (s *JamCaptureService) getOutputExtension() string {
@@ -763,6 +785,12 @@ func (s *JamCaptureService) MixWithTrackVolumes(filename string, trackVolumes ma
 	}
 
 	slog.Info("Custom mix completed successfully", "filename", filename, "song_name", songName)
+
+	// Update last mixed file
+	if err := s.updateLastMixedFile(filename); err != nil {
+		slog.Error("Failed to update last mixed file", "error", err, "filename", filename)
+	}
+
 	return nil
 }
 

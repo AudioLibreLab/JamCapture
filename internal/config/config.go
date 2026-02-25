@@ -106,6 +106,7 @@ type OutputConfig struct {
 	Directory           string `mapstructure:"directory" yaml:"directory"`
 	BackingtracksDirectory string `mapstructure:"backingtracks_directory" yaml:"backingtracks_directory"`
 	Format              string `mapstructure:"format" yaml:"format"`
+	LastMixedFile       string `mapstructure:"last_mixed_file" yaml:"last_mixed_file"`
 }
 
 var defaultConfig = Config{

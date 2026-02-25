@@ -243,6 +243,7 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/mix/analyze/", s.handleMixAnalyze)
 	http.HandleFunc("/api/mix/render", s.handleMixRender)
 	http.HandleFunc("/api/mix/stream/", s.handleMixStream)
+	http.HandleFunc("/api/mix/last-mixed", s.handleLastMixed)
 
 	// Get local IP address
 	localIP := getLocalIP()
@@ -2657,6 +2658,44 @@ func (s *Server) handleMixStream(w http.ResponseWriter, r *http.Request) {
 
 	// Serve the file
 	http.ServeFile(w, r, filePath)
+}
+
+// handleLastMixed returns information about the last mixed file
+func (s *Server) handleLastMixed(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	lastMixed := s.service.GetLastMixedFile()
+
+	response := map[string]interface{}{
+		"success": true,
+		"last_mixed_file": lastMixed,
+	}
+
+	// If we have a last mixed file, check if it exists and get its info
+	if lastMixed != "" {
+		recordingDir := s.cfg.Output.Directory
+		filePath := filepath.Join(recordingDir, lastMixed)
+
+		if stat, err := os.Stat(filePath); err == nil {
+			response["exists"] = true
+			response["size"] = stat.Size()
+			response["size_human"] = formatBytes(stat.Size())
+			response["mod_time"] = stat.ModTime().Format("2006-01-02 15:04:05")
+		} else {
+			response["exists"] = false
+		}
+	} else {
+		response["exists"] = false
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("Failed to encode last mixed response", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }
 
 func getLocalIP() string {
