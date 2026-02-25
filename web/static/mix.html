@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JamCapture - Mix</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        /* Navigation header */
+        .nav-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-radius: var(--pico-border-radius);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        .nav-title {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 0;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--pico-border-radius);
+            transition: background-color 0.3s ease;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Mix interface styles */
+        .mix-controls {
+            margin-bottom: 2rem;
+        }
+
+        .file-selector {
+            margin-bottom: 1.5rem;
+        }
+
+        .file-info {
+            background: var(--pico-card-background-color);
+            padding: 1rem;
+            border-radius: var(--pico-border-radius);
+            border: 1px solid var(--pico-border-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .track-mixer {
+            display: none; /* Initially hidden until file is selected */
+            margin-bottom: 2rem;
+        }
+
+        .track-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .track-item {
+            background: var(--pico-card-background-color);
+            border: 2px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .track-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .track-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--pico-color-primary);
+            margin: 0;
+        }
+
+        .track-channels {
+            font-size: 0.9rem;
+            color: var(--pico-muted-color);
+        }
+
+        .volume-control {
+            margin-bottom: 1rem;
+        }
+
+        .volume-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--pico-color-primary-background);
+            outline: none;
+            -webkit-appearance: none;
+            margin: 10px 0; /* Add margin to prevent clipping */
+        }
+
+        /* WebKit browsers (Chrome, Safari, Edge) */
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--pico-color-primary);
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .volume-slider::-webkit-slider-thumb:hover {
+            background: var(--pico-color-primary-hover);
+            transform: scale(1.1);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Firefox */
+        .volume-slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--pico-color-primary);
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .volume-slider::-moz-range-thumb:hover {
+            background: var(--pico-color-primary-hover);
+            transform: scale(1.1);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Track styles for consistency */
+        .volume-slider::-webkit-slider-track {
+            background: var(--pico-color-primary-background);
+            border-radius: 4px;
+            height: 8px;
+        }
+
+        .volume-slider::-moz-range-track {
+            background: var(--pico-color-primary-background);
+            border-radius: 4px;
+            height: 8px;
+            border: none;
+        }
+
+        .volume-display {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .volume-value {
+            font-weight: bold;
+            color: var(--pico-color-primary);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .volume-presets {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .preset-btn {
+            background: var(--pico-color-secondary);
+            color: white;
+            border: none;
+            padding: 0.25rem 0.75rem;
+            border-radius: var(--pico-border-radius);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .preset-btn:hover {
+            background: var(--pico-color-secondary-hover);
+        }
+
+        .mix-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .mix-button {
+            background: var(--pico-color-success);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: var(--pico-border-radius);
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            min-width: 150px;
+        }
+
+        .mix-button:hover {
+            background: var(--pico-color-success-hover);
+            transform: translateY(-1px);
+        }
+
+        .mix-button:disabled {
+            background: var(--pico-color-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .reset-button {
+            background: var(--pico-color-warning);
+        }
+
+        .reset-button:hover {
+            background: var(--pico-color-warning-hover);
+        }
+
+        /* Audio player */
+        .audio-player {
+            background: var(--pico-card-background-color);
+            padding: 1.5rem;
+            border-radius: var(--pico-border-radius);
+            border: 1px solid var(--pico-border-color);
+            margin-bottom: 2rem;
+            display: none; /* Initially hidden */
+        }
+
+        .audio-player h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--pico-color-primary);
+        }
+
+        .audio-controls {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        /* Response messages */
+        .response-area {
+            margin-bottom: 2rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: var(--pico-border-radius);
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background-color: var(--pico-color-success-background);
+            border: 1px solid var(--pico-color-success);
+            color: var(--pico-color-success);
+        }
+
+        .alert-error {
+            background-color: var(--pico-color-danger-background);
+            border: 1px solid var(--pico-color-danger);
+            color: var(--pico-color-danger);
+        }
+
+        .alert-info {
+            background-color: var(--pico-color-primary-background);
+            border: 1px solid var(--pico-color-primary);
+            color: var(--pico-color-primary);
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--pico-muted-color);
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .nav-content {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .track-list {
+                grid-template-columns: 1fr;
+            }
+
+            .mix-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .track-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <div class="nav-header">
+        <div class="nav-content">
+            <a href="/" class="nav-title">🎸 JamCapture</a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">🏠 Recording</a>
+                <a href="/config" class="nav-link">⚙️ Configuration</a>
+                <a href="/mix" class="nav-link active">🎛️ Mix</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Page Header -->
+        <header>
+            <h1>🎛️ Mix Interface</h1>
+            <p>Select an MKV file from your backing tracks, adjust individual track volumes, and create custom mixes.</p>
+        </header>
+
+        <!-- Response Area -->
+        <div id="response-area" class="response-area"></div>
+
+        <!-- Mix Controls -->
+        <div class="mix-controls">
+            <!-- File Selector -->
+            <div class="file-selector">
+                <h3>📁 Select MKV File</h3>
+                <select id="file-selector" onchange="loadMKVFile()">
+                    <option value="">-- Select an MKV file --</option>
+                </select>
+                <div id="file-info" class="file-info" style="display: none;">
+                    <strong>File:</strong> <span id="selected-filename"></span><br>
+                    <strong>Size:</strong> <span id="selected-filesize"></span><br>
+                    <strong>Modified:</strong> <span id="selected-modtime"></span>
+                </div>
+            </div>
+
+            <!-- Track Mixer -->
+            <div id="track-mixer" class="track-mixer">
+                <h3>🎚️ Track Mixer</h3>
+                <div id="track-list" class="track-list">
+                    <!-- Track controls will be dynamically inserted here -->
+                </div>
+
+                <!-- Mix Actions -->
+                <div class="mix-actions">
+                    <button id="reset-button" class="mix-button reset-button" onclick="resetVolumes()">🔄 Reset Volumes</button>
+                    <button id="mix-button" class="mix-button" onclick="createMix()">🎛️ Create Mix</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Player -->
+        <div id="audio-player" class="audio-player">
+            <h3>🔊 Generated Mix</h3>
+            <audio id="audio-controls" class="audio-controls" controls>
+                <source id="audio-source" type="audio/flac">
+                Your browser does not support the audio element.
+            </audio>
+            <p><strong>File:</strong> <span id="generated-filename"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let selectedFile = null;
+        let trackAnalysis = null;
+        let trackVolumes = {};
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMKVFiles();
+        });
+
+        // Load available MKV files
+        function loadMKVFiles() {
+            fetch('/api/mix/files')
+                .then(response => response.json())
+                .then(data => {
+                    const selector = document.getElementById('file-selector');
+
+                    // Clear existing options except the first
+                    selector.innerHTML = '<option value="">-- Select an MKV file --</option>';
+
+                    if (data.files && data.files.length > 0) {
+                        data.files.forEach(file => {
+                            const option = document.createElement('option');
+                            option.value = file.name;
+                            option.textContent = `${file.name} (${file.size_human})`;
+                            selector.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement('option');
+                        option.textContent = 'No MKV files found';
+                        option.disabled = true;
+                        selector.appendChild(option);
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to load MKV files:', error);
+                    showAlert('Failed to load MKV files: ' + error.message, 'error');
+                });
+        }
+
+        // Load selected MKV file and analyze tracks
+        function loadMKVFile() {
+            const selector = document.getElementById('file-selector');
+            const filename = selector.value;
+
+            if (!filename) {
+                hideTrackMixer();
+                return;
+            }
+
+            selectedFile = filename;
+
+            // Show file info
+            showFileInfo(filename);
+
+            // Analyze the MKV file
+            showAlert('Analyzing MKV file tracks...', 'info');
+
+            fetch(`/api/mix/analyze/${encodeURIComponent(filename)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        trackAnalysis = data.analysis;
+                        displayTrackMixer();
+                        showAlert(`Loaded ${data.analysis.track_count} tracks from ${filename}`, 'success');
+                    } else {
+                        throw new Error(data.error || 'Failed to analyze MKV file');
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to analyze MKV file:', error);
+                    showAlert('Failed to analyze MKV file: ' + error.message, 'error');
+                    hideTrackMixer();
+                });
+        }
+
+        // Show file information
+        function showFileInfo(filename) {
+            const fileInfo = document.getElementById('file-info');
+            const filenameSpan = document.getElementById('selected-filename');
+
+            filenameSpan.textContent = filename;
+            fileInfo.style.display = 'block';
+
+            // Get additional file info from the selector data
+            const selector = document.getElementById('file-selector');
+            const selectedOption = selector.options[selector.selectedIndex];
+            if (selectedOption && selectedOption.textContent.includes('(')) {
+                const sizeMatch = selectedOption.textContent.match(/\(([^)]+)\)/);
+                if (sizeMatch) {
+                    document.getElementById('selected-filesize').textContent = sizeMatch[1];
+                }
+            }
+        }
+
+        // Display track mixer interface
+        function displayTrackMixer() {
+            const trackList = document.getElementById('track-list');
+            const mixer = document.getElementById('track-mixer');
+
+            // Clear existing tracks
+            trackList.innerHTML = '';
+            trackVolumes = {};
+
+            if (!trackAnalysis || !trackAnalysis.tracks || trackAnalysis.tracks.length === 0) {
+                trackList.innerHTML = '<p>No tracks found in this file.</p>';
+                return;
+            }
+
+            // Create track controls
+            trackAnalysis.tracks.forEach(track => {
+                const trackDiv = createTrackControl(track);
+                trackList.appendChild(trackDiv);
+            });
+
+            // Show mixer
+            mixer.style.display = 'block';
+        }
+
+        // Create individual track control
+        function createTrackControl(track) {
+            const trackDiv = document.createElement('div');
+            trackDiv.className = 'track-item';
+            trackDiv.id = `track-${track.index}`;
+
+            // Initialize volume to 100%
+            trackVolumes[track.title] = 1.0;
+
+            trackDiv.innerHTML = `
+                <div class="track-header">
+                    <div>
+                        <h4 class="track-name">${track.title}</h4>
+                        <div class="track-channels">${track.channels} channel${track.channels !== 1 ? 's' : ''}</div>
+                    </div>
+                </div>
+
+                <div class="volume-control">
+                    <div class="volume-display">
+                        <label for="volume-${track.index}">Volume:</label>
+                        <span class="volume-value" id="volume-value-${track.index}">100%</span>
+                    </div>
+                    <input type="range"
+                           id="volume-${track.index}"
+                           class="volume-slider"
+                           min="0"
+                           max="200"
+                           value="100"
+                           oninput="updateVolume('${track.title}', ${track.index}, this.value)">
+
+                    <div class="volume-presets">
+                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 0)">Mute</button>
+                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 50)">50%</button>
+                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 100)">100%</button>
+                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 150)">150%</button>
+                        <button class="preset-btn" onclick="setVolume('${track.title}', ${track.index}, 200)">200%</button>
+                    </div>
+                </div>
+            `;
+
+            return trackDiv;
+        }
+
+        // Update track volume
+        function updateVolume(trackTitle, trackIndex, value) {
+            const volume = parseInt(value);
+            const volumePercent = volume / 100.0;
+
+            // Update internal state
+            trackVolumes[trackTitle] = volumePercent;
+
+            // Update display
+            document.getElementById(`volume-value-${trackIndex}`).textContent = `${volume}%`;
+
+            console.log(`Updated ${trackTitle} volume to ${volumePercent}`);
+        }
+
+        // Set specific volume value
+        function setVolume(trackTitle, trackIndex, volume) {
+            const slider = document.getElementById(`volume-${trackIndex}`);
+            slider.value = volume;
+            updateVolume(trackTitle, trackIndex, volume);
+        }
+
+        // Reset all volumes to 100%
+        function resetVolumes() {
+            if (!trackAnalysis || !trackAnalysis.tracks) return;
+
+            trackAnalysis.tracks.forEach(track => {
+                setVolume(track.title, track.index, 100);
+            });
+
+            showAlert('All volumes reset to 100%', 'success');
+        }
+
+        // Create custom mix
+        function createMix() {
+            if (!selectedFile) {
+                showAlert('Please select an MKV file first', 'error');
+                return;
+            }
+
+            if (Object.keys(trackVolumes).length === 0) {
+                showAlert('No tracks available for mixing', 'error');
+                return;
+            }
+
+            const mixButton = document.getElementById('mix-button');
+            mixButton.disabled = true;
+            mixButton.textContent = '🎛️ Creating Mix...';
+
+            showAlert('Creating custom mix... This may take a few moments.', 'info');
+
+            const payload = {
+                filename: selectedFile,
+                track_volumes: trackVolumes
+            };
+
+            fetch('/api/mix/render', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    showAudioPlayer(data.output_file, data.stream_url);
+                } else {
+                    throw new Error(data.error || 'Failed to create mix');
+                }
+            })
+            .catch(error => {
+                console.error('Failed to create mix:', error);
+                showAlert('Failed to create mix: ' + error.message, 'error');
+            })
+            .finally(() => {
+                mixButton.disabled = false;
+                mixButton.textContent = '🎛️ Create Mix';
+            });
+        }
+
+        // Show audio player with generated mix
+        function showAudioPlayer(filename, streamUrl) {
+            const player = document.getElementById('audio-player');
+            const audio = document.getElementById('audio-controls');
+            const source = document.getElementById('audio-source');
+            const filenameSpan = document.getElementById('generated-filename');
+
+            source.src = streamUrl;
+            audio.load();
+            filenameSpan.textContent = filename;
+            player.style.display = 'block';
+        }
+
+        // Hide track mixer
+        function hideTrackMixer() {
+            document.getElementById('track-mixer').style.display = 'none';
+            document.getElementById('file-info').style.display = 'none';
+            document.getElementById('audio-player').style.display = 'none';
+        }
+
+        // Utility function to show alerts
+        function showAlert(message, type = 'info') {
+            const responseArea = document.getElementById('response-area');
+            const alertClass = `alert-${type}`;
+
+            responseArea.innerHTML = `
+                <div class="alert ${alertClass}">
+                    ${message}
+                </div>
+            `;
+
+            // Auto-hide success and info messages after 5 seconds
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    responseArea.innerHTML = '';
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>

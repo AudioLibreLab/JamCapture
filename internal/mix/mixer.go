@@ -93,6 +93,30 @@ func (m *Mixer) MixWithOptions(songName string, guitarVol, backingVol float64, d
 	return err
 }
 
+// MixWithChannelVolumes creates a mix with custom volume levels for specific channels
+func (m *Mixer) MixWithChannelVolumes(songName string, channelVolumes map[string]float64) error {
+	// Store original values
+	originalChannels := make([]config.Channel, len(m.cfg.Channels))
+	copy(originalChannels, m.cfg.Channels)
+
+	// Apply custom volumes to matching channels
+	for i, channel := range m.cfg.Channels {
+		if vol, exists := channelVolumes[channel.Name]; exists {
+			m.cfg.Channels[i].Volume = vol
+		}
+	}
+
+	slog.Debug("Mixing with custom channel volumes", "song", songName, "volumes", channelVolumes)
+
+	// Use existing Mix() method - reuses all existing logic
+	err := m.Mix(songName)
+
+	// Restore original values
+	m.cfg.Channels = originalChannels
+
+	return err
+}
+
 func (m *Mixer) cleanFileName(name string) string {
 	// Remove special characters and replace spaces with underscores
 	reg := regexp.MustCompile(`[^a-zA-Z0-9 ]`)

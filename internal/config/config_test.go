@@ -349,7 +349,7 @@ func TestBuildMixFilter(t *testing.T) {
 				{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "input", Volume: 2.0, Delay: 0},
 				{Name: "chrome", Sources: []string{"Chrome:output_FL", "Chrome:output_FR"}, AudioMode: "stereo", Type: "monitor", Volume: 0.8, Delay: 0},
 			},
-			expectedFilter:  "[0:0]volume=2.0,aformat=channel_layouts=stereo[ch_guitar];[0:1]volume=0.8[ch_chrome];[ch_guitar][ch_chrome]amix=inputs=2:normalize=0",
+			expectedFilter:  "[0:0]volume=2.0,aformat=channel_layouts=stereo[ch_guitar];[0:1]volume=0.8[ch_chrome];[ch_guitar][ch_chrome]amix=inputs=2:normalize=0[mixed];[mixed]alimiter=limit=0.9:attack=7:release=150",
 			expectedOutputs: 2,
 		},
 	}

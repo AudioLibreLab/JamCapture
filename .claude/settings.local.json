@@ -104,7 +104,8 @@
       "Bash(JAMCAPTURE_SONG=\"test-mix-manual\" timeout 3s ./jamcapture --config test-web-mix.yaml record test-mix-manual)",
       "Bash(rm /home/fjammes/src/github.com/AudioLibreLab/JamCapture/internal/audio/portaudio.go /home/fjammes/src/github.com/AudioLibreLab/JamCapture/internal/audio/portaudio_backend.go /home/fjammes/src/github.com/AudioLibreLab/JamCapture/internal/audio/portaudio_recorder.go)",
       "Bash(rm /home/fjammes/src/github.com/AudioLibreLab/JamCapture/internal/audio/portaudio_test.go /home/fjammes/src/github.com/AudioLibreLab/JamCapture/tests/jamcapture-portaudio-e2e.yaml)",
-      "Bash(rm /home/fjammes/src/github.com/AudioLibreLab/JamCapture/examples/portaudio.yaml)"
+      "Bash(rm /home/fjammes/src/github.com/AudioLibreLab/JamCapture/examples/portaudio.yaml)",
+      "Bash(JAMCAPTURE_SONG=\"test-mix-manual\" timeout 3s ./jamcapture --config tests/jamcapture-e2e.yaml serve --port 8081 -v 1)"
     ],
     "deny": [],
     "ask": []

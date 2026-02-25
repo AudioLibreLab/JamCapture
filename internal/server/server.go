@@ -129,6 +129,19 @@ type BackingtrackSelectRequest struct {
 	Name string `json:"name"`
 }
 
+// MixRenderRequest represents a request to render a custom mix
+type MixRenderRequest struct {
+	Filename     string             `json:"filename"`
+	TrackVolumes map[string]float64 `json:"track_volumes"`
+}
+
+// MixFilesResponse represents the response for listing MKV files
+type MixFilesResponse struct {
+	Files      []service.MKVFileInfo `json:"files"`
+	TotalCount int                   `json:"total_count"`
+	Directory  string                `json:"directory"`
+}
+
 // ConfigCreateRequest represents a request to create a new configuration
 type ConfigCreateRequest struct {
 	Name        string         `json:"name"`
@@ -192,6 +205,7 @@ func New(configFile string, port string) (*Server, error) {
 func (s *Server) Start() error {
 	http.HandleFunc("/", s.handleIndex)
 	http.HandleFunc("/config", s.handleConfigPage)
+	http.HandleFunc("/mix", s.handleMixPage)
 	http.HandleFunc("/ready", s.handleStartReady)
 	http.HandleFunc("/cancel", s.handleCancelReady)
 	http.HandleFunc("/stop", s.handleStopRecording)
@@ -224,6 +238,11 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/backingtracks/convert", s.handleConvertToBackingtrack)
 	http.HandleFunc("/api/backingtracks/stream/", s.handleBackingtrackStreamNew)
 	http.HandleFunc("/api/backingtracks/download/", s.handleBackingtrackDownload)
+	// Mix API
+	http.HandleFunc("/api/mix/files", s.handleMixFiles)
+	http.HandleFunc("/api/mix/analyze/", s.handleMixAnalyze)
+	http.HandleFunc("/api/mix/render", s.handleMixRender)
+	http.HandleFunc("/api/mix/stream/", s.handleMixStream)
 
 	// Get local IP address
 	localIP := getLocalIP()
@@ -2361,6 +2380,283 @@ func (s *Server) sendErrorResponse(w http.ResponseWriter, statusCode int, errorM
 		"success": false,
 		"error":   errorMsg,
 	})
+}
+
+// ===== MIX PAGE AND API HANDLERS =====
+
+// handleMixPage serves the mix interface page
+func (s *Server) handleMixPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Try to read the mix HTML file
+	htmlPath := "web/static/mix.html"
+	htmlContent, err := os.ReadFile(htmlPath)
+	if err != nil {
+		// Fallback to basic HTML if file not found
+		htmlContent = []byte(getDefaultMixHTML())
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Write(htmlContent)
+}
+
+// getDefaultMixHTML provides a fallback mix interface
+func getDefaultMixHTML() string {
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JamCapture - Mix</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎛️ JamCapture - Mix</h1>
+        <p>Mix page loaded! The HTML file could not be read from disk, but the server is working.</p>
+        <a href="/">Back to main page</a>
+    </div>
+</body>
+</html>`
+}
+
+// handleMixFiles returns the list of MKV files available for mixing
+func (s *Server) handleMixFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Get MKV files from service
+	files, err := s.service.ListMKVFiles()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to load MKV files: %v", err),
+		})
+		return
+	}
+
+	// Get directory path (recordings directory where MKV files are created)
+	recordingDir := s.cfg.Output.Directory
+
+	response := MixFilesResponse{
+		Files:      files,
+		TotalCount: len(files),
+		Directory:  recordingDir,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleMixAnalyze analyzes an MKV file and returns track information
+func (s *Server) handleMixAnalyze(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract filename from URL path
+	filename := r.URL.Path[len("/api/mix/analyze/"):]
+	if filename == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Filename required",
+		})
+		return
+	}
+
+	// URL decode the filename
+	decodedFilename, err := url.QueryUnescape(filename)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Invalid filename encoding",
+		})
+		return
+	}
+
+	// Analyze MKV file
+	analysis, err := s.service.AnalyzeMKVFile(decodedFilename)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to analyze MKV file: %v", err),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"analysis": analysis,
+	})
+}
+
+// handleMixRender creates a custom mix with specified track volumes
+func (s *Server) handleMixRender(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	var req MixRenderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Invalid JSON payload",
+		})
+		return
+	}
+
+	if req.Filename == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Filename is required",
+		})
+		return
+	}
+
+	if len(req.TrackVolumes) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Track volumes are required",
+		})
+		return
+	}
+
+	// Perform the mix
+	if err := s.service.MixWithTrackVolumes(req.Filename, req.TrackVolumes); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to create mix: %v", err),
+		})
+		return
+	}
+
+	// Return success with information about the generated file
+	songName := strings.TrimSuffix(req.Filename, ".mkv")
+	outputFile := fmt.Sprintf("%s.%s", songName, s.cfg.Output.Format)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":     true,
+		"message":     fmt.Sprintf("Mix created successfully for %s", req.Filename),
+		"output_file": outputFile,
+		"stream_url":  fmt.Sprintf("/api/mix/stream/%s", outputFile),
+	})
+}
+
+// handleMixStream streams generated FLAC mix files
+func (s *Server) handleMixStream(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract filename from URL path
+	filename := r.URL.Path[len("/api/mix/stream/"):]
+	if filename == "" {
+		http.Error(w, "Filename required", http.StatusBadRequest)
+		return
+	}
+
+	// URL decode the filename
+	decodedFilename, err := url.QueryUnescape(filename)
+	if err != nil {
+		http.Error(w, "Invalid filename encoding", http.StatusBadRequest)
+		return
+	}
+
+	// Use the recordings directory as the source for generated mixes (where they are actually saved)
+	recordingDir := s.cfg.Output.Directory
+	filePath := filepath.Join(recordingDir, decodedFilename)
+
+	// Security check: ensure the file is within the recordings directory
+	cleanPath, err := filepath.Abs(filePath)
+	if err != nil {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	cleanRecordingDir, err := filepath.Abs(recordingDir)
+	if err != nil {
+		http.Error(w, "Invalid directory", http.StatusInternalServerError)
+		return
+	}
+
+	if !strings.HasPrefix(cleanPath, cleanRecordingDir) {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		http.Error(w, "Mix file not found", http.StatusNotFound)
+		return
+	}
+
+	// Determine content type
+	ext := strings.ToLower(filepath.Ext(decodedFilename))
+	contentType := mime.TypeByExtension(ext)
+
+	// Handle specific audio formats
+	switch ext {
+	case ".flac":
+		contentType = "audio/flac"
+	case ".wav":
+		contentType = "audio/wav"
+	case ".mp3":
+		contentType = "audio/mpeg"
+	}
+
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	// Set headers for audio streaming
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Accept-Ranges", "bytes")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+
+	// Serve the file
+	http.ServeFile(w, r, filePath)
 }
 
 func getLocalIP() string {

@@ -640,7 +640,10 @@ func (c *Config) BuildMixFilter() (filter string, outputChannels int) {
 	} else {
 		// Mix multiple tracks
 		mixInputs := strings.Join(inputChannels, "")
-		filterParts = append(filterParts, fmt.Sprintf("%samix=inputs=%d:normalize=0", mixInputs, len(inputChannels)))
+		// Use normalize=0 to maintain full control, then apply intelligent limiter
+		filterParts = append(filterParts, fmt.Sprintf("%samix=inputs=%d:normalize=0[mixed]", mixInputs, len(inputChannels)))
+		// Add smart limiter to prevent clipping while maintaining maximum volume
+		filterParts = append(filterParts, "[mixed]alimiter=limit=0.9:attack=7:release=150")
 		filter = strings.Join(filterParts, ";")
 		outputChannels = 2 // Stereo output
 	}
