@@ -2613,23 +2613,18 @@
             // Format date for display (matching recordings format)
             const date = new Date(bt.mod_time);
             const formattedDate = date.toLocaleDateString('en-US', {
-                month: 'numeric',
+                month: 'short',
                 day: 'numeric',
-                year: '2-digit'
+                year: 'numeric'
             });
 
             return `
-                <div class="recording-item ${bt.is_selected ? 'selected-backingtrack' : ''}">
-                    <span class="recording-name">🎵 ${bt.name}${selectedBadge}</span>
-                    <span class="recording-size">📊 ${bt.size_human}</span>
-                    <span class="recording-date">🕒 ${formattedDate}</span>
-                    <span class="recording-format">🎼 ${bt.extension.toUpperCase()}</span>
-                    <button class="recording-btn play" onclick="loadBackingtrackAudio(${JSON.stringify(bt).replace(/"/g, '&quot;')})" title="Play">
-                        ▶️
-                    </button>
-                    <button class="recording-btn download" onclick="downloadBackingtrack('${bt.name}')" title="Download">
-                        📥
-                    </button>
+                <div class="file-item ${bt.is_selected ? 'selected-backingtrack' : ''}">
+                    <div class="file-name">🎵 ${bt.name}${selectedBadge} <em style="font-size: 0.85rem; color: var(--pico-muted-color); font-weight: normal;">${bt.size_human} • ${formattedDate}</em></div>
+                    <div class="file-actions">
+                        <button onclick="loadBackingtrackAudio(${JSON.stringify(bt).replace(/"/g, '&quot;')})" class="secondary">▶️ Play</button>
+                        <button onclick="downloadBackingtrack('${bt.name}')" class="secondary">📥 Download</button>
+                    </div>
                 </div>
             `;
         }

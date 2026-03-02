@@ -317,6 +317,14 @@
             margin-bottom: 1.5rem;
         }
 
+        .search-bar {
+            margin-bottom: 1rem;
+        }
+
+        .sort-bar {
+            margin-bottom: 1rem;
+        }
+
         .search-sort-bar {
             display: flex;
             gap: 1rem;
@@ -327,6 +335,11 @@
         .file-browser-search-input {
             flex: 1;
             margin: 0;
+            min-width: 200px;
+            padding: 0.5rem;
+            border: 1px solid var(--pico-border-color);
+            border-radius: var(--pico-border-radius);
+            background-color: var(--pico-background-color);
         }
 
         .file-browser-sort-select {
@@ -583,8 +596,10 @@
             <h3>📁 MKV File Browser</h3>
 
             <div class="file-browser-controls">
-                <div class="search-sort-bar">
-                    <input type="text" id="mkv-search" placeholder="🔍 Search MKV files..." class="file-browser-search-input">
+                <div class="search-bar">
+                    <input type="text" id="mkv-search" placeholder="🔍 Search recordings..." class="file-browser-search-input">
+                </div>
+                <div class="sort-bar">
                     <select id="mkv-sort" class="file-browser-sort-select">
                         <option value="date_desc">📅 Newest first</option>
                         <option value="date_asc">📅 Oldest first</option>
@@ -789,13 +804,10 @@
             div.className = 'file-item';
 
             div.innerHTML = `
-                <div class="file-name">${file.name}</div>
-                <div class="file-info">
-                    Size: ${file.size_human}<br>
-                    Modified: ${new Date(file.mod_time).toLocaleDateString()}
-                </div>
+                <div class="file-name">${file.name} <em style="font-size: 0.85rem; color: var(--pico-muted-color); font-weight: normal;">${file.size_human} • ${new Date(file.mod_time).toLocaleDateString()}</em></div>
                 <div class="file-actions">
                     <button onclick="selectMKVFile('${file.name}')" class="secondary">🎛️ Mix</button>
+                    <button onclick="downloadMKVFile('${file.name}')" class="secondary">📥 Download</button>
                 </div>
             `;
 
@@ -828,6 +840,23 @@
                     showAlert('Failed to analyze MKV file: ' + error.message, 'error');
                     hideTrackMixer();
                 });
+        }
+
+        // Download MKV file
+        function downloadMKVFile(filename) {
+            const file = allMKVFiles.find(f => f.name === filename);
+            if (file && file.download_url) {
+                // Create temporary link and click it to trigger download
+                const link = document.createElement('a');
+                link.href = file.download_url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showAlert(`Downloading ${filename}...`, 'info');
+            } else {
+                showAlert('Download URL not available for this file', 'error');
+            }
         }
 
         // Update MKV pagination controls with page numbers
