@@ -979,7 +979,8 @@
 
         // Create track element with volume control
         function createTrackElement(track, index) {
-            const trackName = track.name || `Track ${index + 1}`;
+            // Use metadata title if available, fallback to track name, then to Track X
+            const trackName = track.title || track.name || `Track ${index + 1}`;
             const div = document.createElement('div');
             div.className = 'track-item';
 
@@ -1003,11 +1004,6 @@
                            step="0.1"
                            value="1.0"
                            oninput="updateTrackVolume('${trackName}', this.value, ${index})">
-                    <div class="volume-labels">
-                        <span>0%</span>
-                        <span>100%</span>
-                        <span>200%</span>
-                    </div>
                 </div>
             `;
 
