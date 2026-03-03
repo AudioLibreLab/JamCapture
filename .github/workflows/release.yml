@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Extract tag version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Build binaries
+      run: |
+        # Linux amd64
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o jamcapture-linux-amd64
+
+        # Linux arm64
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-w -s" -o jamcapture-linux-arm64
+
+        # macOS amd64
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s" -o jamcapture-darwin-amd64
+
+        # macOS arm64 (Apple Silicon)
+        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s" -o jamcapture-darwin-arm64
+
+        # Windows amd64
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o jamcapture-windows-amd64.exe
+
+    - name: Create checksums
+      run: |
+        sha256sum jamcapture-* > checksums.txt
+
+    - name: Check if pre-release
+      id: prerelease
+      run: |
+        if [[ "${{ steps.version.outputs.VERSION }}" == *"-"* ]]; then
+          echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+        else
+          echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        name: Release ${{ steps.version.outputs.VERSION }}
+        draft: false
+        prerelease: ${{ steps.prerelease.outputs.IS_PRERELEASE }}
+        files: |
+          jamcapture-linux-amd64
+          jamcapture-linux-arm64
+          jamcapture-darwin-amd64
+          jamcapture-darwin-arm64
+          jamcapture-windows-amd64.exe
+          checksums.txt
+        body: |
+          ## Installation
+
+          ### Linux (amd64)
+          ```bash
+          curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/download/${{ steps.version.outputs.VERSION }}/jamcapture-linux-amd64
+          chmod +x jamcapture
+          sudo mv jamcapture /usr/local/bin/
+          ```
+
+          ### Linux (arm64)
+          ```bash
+          curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/download/${{ steps.version.outputs.VERSION }}/jamcapture-linux-arm64
+          chmod +x jamcapture
+          sudo mv jamcapture /usr/local/bin/
+          ```
+
+          ### macOS (Intel)
+          ```bash
+          curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/download/${{ steps.version.outputs.VERSION }}/jamcapture-darwin-amd64
+          chmod +x jamcapture
+          sudo mv jamcapture /usr/local/bin/
+          ```
+
+          ### macOS (Apple Silicon)
+          ```bash
+          curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/download/${{ steps.version.outputs.VERSION }}/jamcapture-darwin-arm64
+          chmod +x jamcapture
+          sudo mv jamcapture /usr/local/bin/
+          ```
+
+          ### Windows (amd64)
+          Download `jamcapture-windows-amd64.exe` and add to your PATH.
+
+          ## Verification
+          ```bash
+          sha256sum jamcapture  # Compare with checksums.txt
+          jamcapture --version
+          ```

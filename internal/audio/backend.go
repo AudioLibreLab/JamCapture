@@ -62,12 +62,3 @@ func determineBackend(cfg *config.Config) BackendType {
 }
 
 
-// GetAvailableBackends returns list of available backends on current system
-func GetAvailableBackends() []BackendType {
-	backends := []BackendType{}
-
-	// Only PipeWire backend is available
-	backends = append(backends, BackendTypePipeWire)
-
-	return backends
-}

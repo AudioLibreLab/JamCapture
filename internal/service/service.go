@@ -253,13 +253,35 @@ func (s *JamCaptureService) GetRecordingStatus() (RecordingStatus, *RecordingSes
 // Mix mixes recorded tracks using configuration defaults
 func (s *JamCaptureService) Mix(songName string) error {
 	mixer := mix.New(s.cfg)
-	return mixer.Mix(songName)
+	if err := mixer.Mix(songName); err != nil {
+		return err
+	}
+
+	// Update last mixed file with the generated output filename (FLAC/WAV)
+	outputExtension := s.getOutputExtension()
+	outputFilename := songName + "." + outputExtension
+	if err := s.updateLastMixedFile(outputFilename); err != nil {
+		slog.Error("Failed to update last mixed file", "error", err, "filename", outputFilename)
+	}
+
+	return nil
 }
 
 // MixWithOptions mixes recorded tracks with custom options
 func (s *JamCaptureService) MixWithOptions(songName string, guitarVolume, backingVolume float64, delay int) error {
 	mixer := mix.New(s.cfg)
-	return mixer.MixWithOptions(songName, guitarVolume, backingVolume, delay)
+	if err := mixer.MixWithOptions(songName, guitarVolume, backingVolume, delay); err != nil {
+		return err
+	}
+
+	// Update last mixed file with the generated output filename (FLAC/WAV)
+	outputExtension := s.getOutputExtension()
+	outputFilename := songName + "." + outputExtension
+	if err := s.updateLastMixedFile(outputFilename); err != nil {
+		slog.Error("Failed to update last mixed file", "error", err, "filename", outputFilename)
+	}
+
+	return nil
 }
 
 // Play plays the mixed audio file
@@ -786,9 +808,11 @@ func (s *JamCaptureService) MixWithTrackVolumes(filename string, trackVolumes ma
 
 	slog.Info("Custom mix completed successfully", "filename", filename, "song_name", songName)
 
-	// Update last mixed file
-	if err := s.updateLastMixedFile(filename); err != nil {
-		slog.Error("Failed to update last mixed file", "error", err, "filename", filename)
+	// Update last mixed file with the generated output filename (FLAC/WAV)
+	outputExtension := s.getOutputExtension()
+	outputFilename := songName + "." + outputExtension
+	if err := s.updateLastMixedFile(outputFilename); err != nil {
+		slog.Error("Failed to update last mixed file", "error", err, "filename", outputFilename)
 	}
 
 	return nil

@@ -1056,10 +1056,10 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showAlert(`Mix created successfully: ${data.output_filename}`, 'success');
+                        showAlert(`Mix created successfully: ${data.output_file}`, 'success');
 
                         // Update the player with the new mix
-                        setupAudioPlayer(data.output_filename, {
+                        setupAudioPlayer(data.output_file, {
                             size_human: 'Just created',
                             mod_time: new Date().toLocaleString()
                         });

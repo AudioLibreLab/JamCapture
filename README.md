@@ -18,12 +18,46 @@
   <p><em>Mobile-optimized web interface for smartphone recording control</em></p>
 </div>
 
+## Installation
+
+### Latest Release (Recommended)
+
+```bash
+# Linux (amd64)
+curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-linux-amd64
+chmod +x jamcapture
+sudo mv jamcapture /usr/local/bin/
+
+# Linux (arm64)
+curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-linux-arm64
+chmod +x jamcapture
+sudo mv jamcapture /usr/local/bin/
+
+# macOS (Intel)
+curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-darwin-amd64
+chmod +x jamcapture
+sudo mv jamcapture /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-darwin-arm64
+chmod +x jamcapture
+sudo mv jamcapture /usr/local/bin/
+```
+
+For Windows, download `jamcapture-windows-amd64.exe` from the [latest release](https://github.com/AudioLibreLab/JamCapture/releases/latest).
+
+### Build from Source
+
+```bash
+# Clone and build
+git clone https://github.com/AudioLibreLab/JamCapture.git
+cd JamCapture
+go build
+```
+
 ## Quick Start
 
 ```bash
-# Build the application
-go build
-
 # Start web interface (recommended)
 ./jamcapture serve --port 8080
 # Open http://your-ip:8080 on your smartphone
