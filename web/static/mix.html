@@ -116,6 +116,26 @@
             margin-bottom: 1rem;
         }
 
+        .global-volume-control {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            border: 2px solid var(--pico-color-success);
+            border-radius: 8px;
+            background: rgba(var(--pico-color-success-rgb), 0.05);
+        }
+
+        .global-volume-control h4 {
+            margin: 0 0 1rem 0;
+            color: var(--pico-color-success);
+        }
+
+        .volume-hint {
+            margin: 0.5rem 0 0 0;
+            font-size: 0.85rem;
+            color: var(--pico-muted-color);
+            font-style: italic;
+        }
+
         .volume-slider {
             width: 100%;
             height: 8px;
@@ -584,6 +604,23 @@
                 <!-- Track controls will be dynamically inserted here -->
             </div>
 
+            <!-- Global Volume Control -->
+            <div class="global-volume-control">
+                <h4>🔊 Global Mix Volume</h4>
+                <div class="volume-control">
+                    <label for="global-volume" class="volume-label">Master Volume:</label>
+                    <input type="range"
+                           id="global-volume"
+                           min="0"
+                           max="3"
+                           step="0.1"
+                           value="1.5"
+                           oninput="updateGlobalVolume(this.value)">
+                    <span id="global-volume-value" class="volume-value">1.5x</span>
+                </div>
+                <p class="volume-hint">Adjust the overall output volume of the final mix</p>
+            </div>
+
             <!-- Mix Actions -->
             <div class="mix-actions">
                 <button id="reset-button" class="mix-button reset-button" onclick="resetVolumes()">🔄 Reset Volumes</button>
@@ -638,6 +675,7 @@
         let selectedFile = null;
         let trackAnalysis = null;
         let trackVolumes = {};
+        let globalVolume = 1.5; // Default global volume boost
 
         // MKV files pagination state
         let allMKVFiles = [];
@@ -1019,6 +1057,12 @@
             volumeValue.textContent = Math.round(value * 100) + '%';
         }
 
+        // Update global volume
+        function updateGlobalVolume(value) {
+            globalVolume = parseFloat(value);
+            document.getElementById('global-volume-value').textContent = value + 'x';
+        }
+
         // Reset all volumes to 100%
         function resetVolumes() {
             Object.keys(trackVolumes).forEach((trackName, index) => {
@@ -1029,7 +1073,16 @@
                     updateTrackVolume(trackName, '1.0', index);
                 }
             });
-            showAlert('All volumes reset to 100%', 'info');
+
+            // Reset global volume
+            globalVolume = 1.5;
+            const globalSlider = document.getElementById('global-volume');
+            if (globalSlider) {
+                globalSlider.value = '1.5';
+                updateGlobalVolume('1.5');
+            }
+
+            showAlert('All volumes reset to default values', 'info');
         }
 
         // Create mix with current volume settings
@@ -1041,7 +1094,8 @@
 
             const data = {
                 filename: selectedFile,
-                track_volumes: trackVolumes
+                track_volumes: trackVolumes,
+                global_volume: globalVolume
             };
 
             showAlert('Creating custom mix...', 'info');

@@ -133,6 +133,7 @@ type BackingtrackSelectRequest struct {
 type MixRenderRequest struct {
 	Filename     string             `json:"filename"`
 	TrackVolumes map[string]float64 `json:"track_volumes"`
+	GlobalVolume *float64           `json:"global_volume,omitempty"`
 }
 
 // MixFilesResponse represents the response for listing MKV files
@@ -2560,15 +2561,29 @@ func (s *Server) handleMixRender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Perform the mix
-	if err := s.service.MixWithTrackVolumes(req.Filename, req.TrackVolumes); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(GenericResponse{
-			Success: false,
-			Error:   fmt.Sprintf("Failed to create mix: %v", err),
-		})
-		return
+	// Perform the mix with global volume if provided
+	if req.GlobalVolume != nil {
+		slog.Debug("Received mix request with global volume", "filename", req.Filename, "global_volume", *req.GlobalVolume, "track_volumes", req.TrackVolumes)
+		if err := s.service.MixWithTrackAndGlobalVolumes(req.Filename, req.TrackVolumes, *req.GlobalVolume); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(GenericResponse{
+				Success: false,
+				Error:   fmt.Sprintf("Failed to create mix: %v", err),
+			})
+			return
+		}
+	} else {
+		// Fallback to original method if no global volume specified
+		if err := s.service.MixWithTrackVolumes(req.Filename, req.TrackVolumes); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(GenericResponse{
+				Success: false,
+				Error:   fmt.Sprintf("Failed to create mix: %v", err),
+			})
+			return
+		}
 	}
 
 	// Return success with information about the generated file

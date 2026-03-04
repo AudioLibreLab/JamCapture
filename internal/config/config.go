@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -650,6 +651,160 @@ func (c *Config) BuildMixFilter() (filter string, outputChannels int) {
 	}
 
 	return filter, outputChannels
+}
+
+// BuildMixFilterWithGlobalVolume creates FFmpeg filter with global volume control
+func (c *Config) BuildMixFilterWithGlobalVolume(globalVolume float64) (filter string, outputChannels int) {
+	// Start with the base filter
+	baseFilter, channels := c.BuildMixFilter()
+	if baseFilter == "" {
+		return "", 0
+	}
+
+	// Apply global volume before the limiter
+	// Skip global volume adjustment for values <= 0.0 or exactly 1.0
+	if globalVolume <= 0.0 {
+		// Log warning for zero or negative volume
+		slog.Warn("Global volume is zero or negative, skipping global volume adjustment", "global_volume", globalVolume)
+	} else if globalVolume != 1.0 {
+		// If there's an alimiter, insert volume control before it
+		if strings.Contains(baseFilter, "alimiter") {
+			// Replace the limiter with volume+limiter
+			baseFilter = strings.Replace(baseFilter,
+				"alimiter=limit=0.9:attack=7:release=150",
+				fmt.Sprintf("volume=%.1f,alimiter=limit=0.9:attack=7:release=150", globalVolume),
+				1)
+		} else {
+			// No limiter present, just add volume at the end
+			baseFilter = fmt.Sprintf("%s,volume=%.1f", baseFilter, globalVolume)
+		}
+	}
+
+	return baseFilter, channels
+}
+
+// TrackInfo represents information about an audio track in an MKV file (imported from mix package)
+type TrackInfo struct {
+	Index    int    `json:"index"`
+	Name     string `json:"name"`
+	Title    string `json:"title"`
+	Channels int    `json:"channels"`
+}
+
+// MKVAnalysis represents the analysis results of an MKV file (imported from mix package)
+type MKVAnalysis struct {
+	Filename   string      `json:"filename"`
+	TrackCount int         `json:"track_count"`
+	Tracks     []TrackInfo `json:"tracks"`
+}
+
+// BuildMixFilterForFile creates FFmpeg filter based on actual file structure
+func (c *Config) BuildMixFilterForFile(analysis *MKVAnalysis) (filter string, outputChannels int) {
+	if analysis == nil || len(analysis.Tracks) == 0 {
+		return "", 0
+	}
+
+	// Get enabled channels from configuration
+	enabledChannels := c.getEnabledChannels()
+	if len(enabledChannels) == 0 {
+		return "", 0
+	}
+
+	// Limit to actual tracks available in the file
+	availableTracks := len(analysis.Tracks)
+	if len(enabledChannels) > availableTracks {
+		slog.Warn("Configuration has more channels than available tracks in file",
+			"config_channels", len(enabledChannels),
+			"file_tracks", availableTracks,
+			"filename", analysis.Filename)
+		enabledChannels = enabledChannels[:availableTracks]
+	}
+
+	var filterParts []string
+	var inputChannels []string
+
+	// Process each channel individually with its own volume and delay
+	for i, channel := range enabledChannels {
+		if i >= availableTracks {
+			break // Safety check
+		}
+
+		track := analysis.Tracks[i]
+		channelRef := fmt.Sprintf("[ch_%s]", channel.Name)
+
+		// For stereo channels, the input stream already contains 2 channels
+		// For mono channels, the input stream contains 1 channel
+		var baseFilter string
+		if track.Channels > 1 || channel.AudioMode == "stereo" {
+			// Stereo track: apply volume and delay to both channels
+			if channel.Delay > 0 {
+				// For stereo tracks, apply delay to both left and right channels: adelay=delay|delay
+				baseFilter = fmt.Sprintf("[0:%d]volume=%.1f,adelay=%d|%d", i, channel.Volume, channel.Delay, channel.Delay)
+			} else {
+				baseFilter = fmt.Sprintf("[0:%d]volume=%.1f", i, channel.Volume)
+			}
+		} else {
+			// Mono track: apply volume and delay, then convert to stereo for mixing
+			if channel.Delay > 0 {
+				baseFilter = fmt.Sprintf("[0:%d]volume=%.1f,adelay=%d,aformat=channel_layouts=stereo", i, channel.Volume, channel.Delay)
+			} else {
+				baseFilter = fmt.Sprintf("[0:%d]volume=%.1f,aformat=channel_layouts=stereo", i, channel.Volume)
+			}
+		}
+
+		filterParts = append(filterParts, baseFilter+channelRef)
+		inputChannels = append(inputChannels, channelRef)
+	}
+
+	// Final mix
+	if len(inputChannels) == 1 {
+		// Single track - remove intermediate labels for direct output
+		// Remove the channel reference from the filter part to make it direct
+		singleChannelRef := fmt.Sprintf("[ch_%s]", enabledChannels[0].Name)
+		filter = strings.ReplaceAll(filterParts[0], singleChannelRef, "")
+		outputChannels = 2 // Always output stereo
+	} else {
+		// Mix multiple tracks
+		mixInputs := strings.Join(inputChannels, "")
+		// Use normalize=0 to maintain full control, then apply intelligent limiter
+		filterParts = append(filterParts, fmt.Sprintf("%samix=inputs=%d:normalize=0[mixed]", mixInputs, len(inputChannels)))
+		// Add smart limiter to prevent clipping while maintaining maximum volume
+		filterParts = append(filterParts, "[mixed]alimiter=limit=0.9:attack=7:release=150")
+		filter = strings.Join(filterParts, ";")
+		outputChannels = 2 // Stereo output
+	}
+
+	return filter, outputChannels
+}
+
+// BuildMixFilterForFileWithGlobalVolume creates FFmpeg filter based on actual file structure with global volume
+func (c *Config) BuildMixFilterForFileWithGlobalVolume(analysis *MKVAnalysis, globalVolume float64) (filter string, outputChannels int) {
+	// Start with the base filter
+	baseFilter, channels := c.BuildMixFilterForFile(analysis)
+	if baseFilter == "" {
+		return "", 0
+	}
+
+	// Apply global volume before the limiter
+	// Skip global volume adjustment for values <= 0.0 or exactly 1.0
+	if globalVolume <= 0.0 {
+		// Log warning for zero or negative volume
+		slog.Warn("Global volume is zero or negative, skipping global volume adjustment", "global_volume", globalVolume)
+	} else if globalVolume != 1.0 {
+		// If there's an alimiter, insert volume control before it
+		if strings.Contains(baseFilter, "alimiter") {
+			// Replace the limiter with volume+limiter
+			baseFilter = strings.Replace(baseFilter,
+				"alimiter=limit=0.9:attack=7:release=150",
+				fmt.Sprintf("volume=%.1f,alimiter=limit=0.9:attack=7:release=150", globalVolume),
+				1)
+		} else {
+			// No limiter present, just add volume at the end
+			baseFilter = fmt.Sprintf("%s,volume=%.1f", baseFilter, globalVolume)
+		}
+	}
+
+	return baseFilter, channels
 }
 
 // getEnabledChannels returns channels that are not disabled

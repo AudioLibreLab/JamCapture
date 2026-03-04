@@ -58,6 +58,7 @@ type Service interface {
 	ListMKVFiles() ([]MKVFileInfo, error)
 	AnalyzeMKVFile(filename string) (*MKVAnalysis, error)
 	MixWithTrackVolumes(filename string, trackVolumes map[string]float64) error
+	MixWithTrackAndGlobalVolumes(filename string, trackVolumes map[string]float64, globalVolume float64) error
 	GetLastMixedFile() string
 }
 
@@ -807,6 +808,34 @@ func (s *JamCaptureService) MixWithTrackVolumes(filename string, trackVolumes ma
 	}
 
 	slog.Info("Custom mix completed successfully", "filename", filename, "song_name", songName)
+
+	// Update last mixed file with the generated output filename (FLAC/WAV)
+	outputExtension := s.getOutputExtension()
+	outputFilename := songName + "." + outputExtension
+	if err := s.updateLastMixedFile(outputFilename); err != nil {
+		slog.Error("Failed to update last mixed file", "error", err, "filename", outputFilename)
+	}
+
+	return nil
+}
+
+// MixWithTrackAndGlobalVolumes creates a custom mix using the specified track volumes and global volume
+func (s *JamCaptureService) MixWithTrackAndGlobalVolumes(filename string, trackVolumes map[string]float64, globalVolume float64) error {
+	// Remove .mkv extension to get the song name
+	songName := strings.TrimSuffix(filename, ".mkv")
+
+	// Create mixer with current config
+	mixer := mix.New(s.cfg)
+
+	slog.Info("Starting custom mix with global volume", "filename", filename, "song_name", songName, "volumes", trackVolumes, "global_volume", globalVolume)
+
+	// Use the new MixWithChannelAndGlobalVolumes method
+	if err := mixer.MixWithChannelAndGlobalVolumes(songName, trackVolumes, globalVolume); err != nil {
+		s.setLastError(fmt.Sprintf("Custom mix with global volume failed for %s: %v", filename, err))
+		return fmt.Errorf("custom mix with global volume failed for %s: %w", filename, err)
+	}
+
+	slog.Info("Custom mix with global volume completed successfully", "filename", filename, "song_name", songName)
 
 	// Update last mixed file with the generated output filename (FLAC/WAV)
 	outputExtension := s.getOutputExtension()
