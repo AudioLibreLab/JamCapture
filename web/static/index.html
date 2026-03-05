@@ -2332,6 +2332,7 @@
                     <button onclick="playRecording('${recording.name}')" class="secondary">▶️ Play</button>
                     <button onclick="setAsBackingTrack('${recording.name}')" class="secondary">🎵 Backing</button>
                     <button onclick="downloadRecording('${recording.name}')" class="secondary">📥 Download</button>
+                    <button onclick="deleteRecording('${recording.name}')" class="secondary" style="color: var(--pico-color-red-500)">🗑️ Delete</button>
                 </div>
             `;
 
@@ -2511,6 +2512,36 @@
             }
         }
 
+        // Delete recording with confirmation
+        function deleteRecording(filename) {
+            if (!confirm(`Are you sure you want to delete the recording "${filename}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            fetch(`/api/files/delete/${encodeURIComponent(filename)}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updatePlayerStatus(`✅ Deleted recording: ${filename}`);
+                    // Refresh recordings list
+                    loadAllRecordings('silent');
+                    // If this was the currently playing track, clear the player
+                    const audioPlayer = document.getElementById('audio-player');
+                    if (audioPlayer.src.includes(encodeURIComponent(filename))) {
+                        clearAudioPlayer();
+                    }
+                } else {
+                    showAudioError(`Error deleting recording: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting recording:', error);
+                showAudioError(`Error deleting recording: ${error.message}`);
+            });
+        }
+
         // ===== END ALL RECORDINGS FUNCTIONS =====
 
         // ===== END AUDIO PLAYER FUNCTIONS =====
@@ -2624,6 +2655,7 @@
                     <div class="file-actions">
                         <button onclick="loadBackingtrackAudio(${JSON.stringify(bt).replace(/"/g, '&quot;')})" class="secondary">▶️ Play</button>
                         <button onclick="downloadBackingtrack('${bt.name}')" class="secondary">📥 Download</button>
+                        <button onclick="deleteBackingtrack('${bt.name}')" class="secondary" style="color: var(--pico-color-red-500)">🗑️ Delete</button>
                     </div>
                 </div>
             `;
@@ -2634,10 +2666,13 @@
             const audioPlayer = document.getElementById('audio-player');
             const fileInfoDiv = document.getElementById('file-info');
 
-            audioPlayer.src = bt.stream_url + '?t=' + new Date().getTime();
+            // Set audio source with cache-busting parameter (same as playRecording)
+            const timestamp = new Date().getTime();
+            audioPlayer.src = `${bt.stream_url}?t=${timestamp}`;
             showAudioPlayer();
+            updatePlayerStatus(`🎵 Playing: ${bt.name}`);
 
-            updatePlayerStatus(`🎵 Loading backing track: ${bt.name}`);
+            // Show file information
             fileInfoDiv.innerHTML = `
                 <div style="background-color: var(--pico-color-blue-50); border-left: 4px solid var(--pico-color-blue); padding: 1rem; border-radius: 4px;">
                     <strong>🎵 Backing Track:</strong> ${bt.name}<br>
@@ -2652,9 +2687,10 @@
                 selectBackingtrack(bt.name, true); // true = silent mode
             }
 
-            // Add audio event listeners
+            // Add event listeners for this specific load (same as playRecording)
             audioPlayer.addEventListener('loadedmetadata', function() {
-                updatePlayerStatus(`✅ Backing track ready: ${bt.name}`);
+                console.log('Backing track metadata loaded:', bt.name);
+                updatePlayerStatus(`✅ Playing: ${bt.name}`);
                 clearAudioError();
             }, { once: true });
 
@@ -2711,6 +2747,36 @@
             document.body.removeChild(link);
 
             updatePlayerStatus(`📥 Downloading: ${name}`);
+        }
+
+        // Delete backing track with confirmation
+        function deleteBackingtrack(name) {
+            if (!confirm(`Are you sure you want to delete the backing track "${name}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            fetch(`/api/backingtracks/delete/${encodeURIComponent(name)}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updatePlayerStatus(`✅ Deleted backing track: ${name}`);
+                    // Refresh backing tracks list
+                    loadBackingtracks('silent');
+                    // If this was the currently playing track, clear the player
+                    const audioPlayer = document.getElementById('audio-player');
+                    if (audioPlayer.src.includes(encodeURIComponent(name))) {
+                        clearAudioPlayer();
+                    }
+                } else {
+                    showAudioError(`Error deleting backing track: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting backing track:', error);
+                showAudioError(`Error deleting backing track: ${error.message}`);
+            });
         }
 
         // Convert recording to backing track

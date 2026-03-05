@@ -221,6 +221,7 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/files", s.handleFiles)
 	http.HandleFunc("/api/files/stream/", s.handleFileStream)
 	http.HandleFunc("/api/files/download/", s.handleFileDownload)
+	http.HandleFunc("/api/files/delete/", s.handleFileDelete)
 	http.HandleFunc("/api/config/create", s.handleCreateConfig)
 	http.HandleFunc("/api/config/update/", s.handleUpdateConfig)
 	http.HandleFunc("/api/config/delete/", s.handleDeleteConfig)
@@ -239,6 +240,7 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/backingtracks/convert", s.handleConvertToBackingtrack)
 	http.HandleFunc("/api/backingtracks/stream/", s.handleBackingtrackStreamNew)
 	http.HandleFunc("/api/backingtracks/download/", s.handleBackingtrackDownload)
+	http.HandleFunc("/api/backingtracks/delete/", s.handleDeleteBackingtrack)
 	// Mix API
 	http.HandleFunc("/api/mix/files", s.handleMixFiles)
 	http.HandleFunc("/api/mix/analyze/", s.handleMixAnalyze)
@@ -1214,6 +1216,123 @@ func (s *Server) handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("Error serving file download", "file", filename, "error", err)
 	}
+}
+
+// handleFileDelete deletes a recording file
+func (s *Server) handleFileDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract filename from URL
+	filename := r.URL.Path[len("/api/files/delete/"):]
+	if filename == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Filename required",
+		})
+		return
+	}
+
+	// URL decode the filename
+	decodedFilename, err := url.QueryUnescape(filename)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Invalid filename encoding",
+		})
+		return
+	}
+
+	// Validate filename (prevent path traversal)
+	if strings.Contains(decodedFilename, "..") || strings.Contains(decodedFilename, "/") || strings.Contains(decodedFilename, "\\") {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Invalid filename",
+		})
+		return
+	}
+
+	// Construct file path using output directory
+	outputDir := s.cfg.Output.Directory
+	filePath := filepath.Join(outputDir, decodedFilename)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(GenericResponse{
+				Success: false,
+				Error:   "File not found",
+			})
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(GenericResponse{
+				Success: false,
+				Error:   "Error accessing file",
+			})
+		}
+		return
+	}
+
+	// Verify file extension is supported (audio extensions + mkv for recordings)
+	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(decodedFilename)), ".")
+	supportedExts := config.GetSupportedAudioExtensions(s.configFile)
+
+	// Add mkv as supported extension for recording files
+	allSupportedExts := append(supportedExts, "mkv")
+
+	supported := false
+	for _, supportedExt := range allSupportedExts {
+		if ext == strings.ToLower(supportedExt) {
+			supported = true
+			break
+		}
+	}
+
+	if !supported {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "File type not supported",
+		})
+		return
+	}
+
+	// Delete the file
+	if err := os.Remove(filePath); err != nil {
+		slog.Error("Failed to delete recording file", "file", decodedFilename, "error", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to delete file: %v", err),
+		})
+		return
+	}
+
+	slog.Info("Recording file deleted", "file", decodedFilename)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(GenericResponse{
+		Success: true,
+		Message: fmt.Sprintf("Successfully deleted recording: %s", decodedFilename),
+	})
 }
 
 // getActiveProfileName returns the active profile name from config file
@@ -2329,6 +2448,105 @@ func (s *Server) handleBackingtrackDownload(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		slog.Error("Error serving backing track download", "file", fileName, "error", err)
 	}
+}
+
+// handleDeleteBackingtrack deletes a backing track file
+func (s *Server) handleDeleteBackingtrack(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract filename from URL
+	filename := r.URL.Path[len("/api/backingtracks/delete/"):]
+	if filename == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Filename required",
+		})
+		return
+	}
+
+	// URL decode the filename
+	fileName, err := url.QueryUnescape(filename)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Invalid filename encoding",
+		})
+		return
+	}
+
+	// Validate filename (prevent path traversal)
+	if strings.Contains(fileName, "..") || strings.Contains(fileName, "/") || strings.Contains(fileName, "\\") {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   "Invalid filename",
+		})
+		return
+	}
+
+	// Get the backingtracks directory
+	backingDir := s.getBackingtracksDirectory()
+	filePath := filepath.Join(backingDir, fileName)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(GenericResponse{
+				Success: false,
+				Error:   "File not found",
+			})
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(GenericResponse{
+				Success: false,
+				Error:   "Error accessing file",
+			})
+		}
+		return
+	}
+
+	// Delete the file
+	if err := os.Remove(filePath); err != nil {
+		slog.Error("Failed to delete backing track", "file", fileName, "error", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(GenericResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to delete file: %v", err),
+		})
+		return
+	}
+
+	slog.Info("Backing track deleted", "file", fileName)
+
+	// If this was the selected backing track, clear the selection
+	if selectedBt, _ := s.service.GetSelectedBackingtrack(); selectedBt != nil && selectedBt.Name == fileName {
+		if err := s.service.SetSelectedBackingtrack(""); err != nil {
+			slog.Warn("Failed to clear selected backing track after deletion", "error", err)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(GenericResponse{
+		Success: true,
+		Message: fmt.Sprintf("Successfully deleted backing track: %s", fileName),
+	})
 }
 
 // getBackingtracksDirectory returns the resolved backing tracks directory path

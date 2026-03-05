@@ -15,8 +15,13 @@ configs:
         auto_mix: true
         channels:
             - ref: xr18_1
+              name: ch1
             - ref: xr18_2
+              name: ch2
+            - ref: xr18_3
+              name: ch3
             - ref: xr18_aux
+              name: aux
         output:
             format: flac
 definitions:
@@ -24,7 +29,6 @@ definitions:
         - audiomode: mono
           delay: 0
           id: carla
-          name: carla
           sources:
             - Carla-Patchbay:audio-out1
           type: input
@@ -32,7 +36,6 @@ definitions:
         - audiomode: stereo
           delay: 0
           id: xr18_aux
-          name: aux
           sources:
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX16
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX17
@@ -41,7 +44,6 @@ definitions:
         - audiomode: mono
           delay: 0
           id: xr18_1
-          name: guitar
           sources:
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX0
           type: input
@@ -49,15 +51,20 @@ definitions:
         - audiomode: mono
           delay: 0
           id: xr18_2
-          name: mic
           sources:
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX1
+          type: input
+          volume: 4
+        - audiomode: mono
+          delay: 0
+          id: xr18_3
+          sources:
+            - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX2
           type: input
           volume: 4
         - audiomode: stereo
           delay: 0
           id: chrome
-          name: chrome
           sources:
             - Google Chrome:output_FR
             - Google Chrome:output_FL

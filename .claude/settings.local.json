@@ -108,7 +108,9 @@
       "Bash(JAMCAPTURE_SONG=\"test-mix-manual\" timeout 3s ./jamcapture --config tests/jamcapture-e2e.yaml serve --port 8081 -v 1)",
       "Bash(JAMCAPTURE_SONG=\"test-new-mix-interface\" timeout 5s ./jamcapture --config tests/jamcapture-e2e.yaml serve --port 8081 -v 1)",
       "Bash(mkdir -p .github/workflows)",
-      "Bash(JAMCAPTURE_SONG=\"test-volume-fix\" timeout 5s ./jamcapture --config tests/jamcapture-e2e.yaml record test-volume-fix -v 1)"
+      "Bash(JAMCAPTURE_SONG=\"test-volume-fix\" timeout 5s ./jamcapture --config tests/jamcapture-e2e.yaml record test-volume-fix -v 1)",
+      "Bash(./tests/config-validation-e2e.sh)",
+      "Bash(./tests/simple-config-test.sh)"
     ],
     "deny": [],
     "ask": []

@@ -16,7 +16,6 @@ type DefinitionsConfig struct {
 
 type ChannelDefinition struct {
 	ID        string   `mapstructure:"id" yaml:"id"`
-	Name      string   `mapstructure:"name" yaml:"name"`
 	Sources   []string `mapstructure:"sources" yaml:"sources"`
 	AudioMode string   `mapstructure:"audioMode" yaml:"audioMode"`
 	Type      string   `mapstructure:"type" yaml:"type"`
@@ -26,6 +25,7 @@ type ChannelDefinition struct {
 
 type ChannelReference struct {
 	Ref    string   `mapstructure:"ref" yaml:"ref"`
+	Name   string   `mapstructure:"name,omitempty" yaml:"name,omitempty"`     // Optional name override
 	Volume *float64 `mapstructure:"volume,omitempty" yaml:"volume,omitempty"` // Surcharge autorisée
 	Delay  *int     `mapstructure:"delay,omitempty" yaml:"delay,omitempty"`   // Surcharge autorisée
 }
@@ -259,6 +259,14 @@ func convertProfileToConfig(profile *ConfigProfile, definitions *DefinitionsConf
 		Audio:   profile.Audio,
 		Output:  profile.Output,
 		AutoMix: profile.AutoMix,
+		Inheritance: &InheritanceInfo{
+			Channels: make(map[string]struct {
+				Source string
+				Type   string
+				Volume string
+				Delay  string
+			}),
+		},
 	}
 
 	// Resolve channel references
@@ -283,8 +291,14 @@ func convertProfileToConfig(profile *ConfigProfile, definitions *DefinitionsConf
 		}
 
 		// Create channel from definition
+		// Use reference name if provided, otherwise fallback to definition ID
+		channelName := chRef.Name
+		if channelName == "" {
+			channelName = definition.ID
+		}
+
 		channel := Channel{
-			Name:      definition.Name,
+			Name:      channelName,
 			Sources:   definition.Sources,
 			AudioMode: definition.AudioMode,
 			Type:      definition.Type,
@@ -292,16 +306,41 @@ func convertProfileToConfig(profile *ConfigProfile, definitions *DefinitionsConf
 			Delay:     definition.Delay,
 		}
 
-		// Apply overrides
+		// Track inheritance for this channel
+		channelInheritance := struct {
+			Source string
+			Type   string
+			Volume string
+			Delay  string
+		}{
+			Source: "definition",
+			Type:   "definition",
+			Volume: "definition",
+			Delay:  "definition",
+		}
+
+		// Apply overrides and update inheritance tracking
 		if chRef.Volume != nil {
 			channel.Volume = *chRef.Volume
+			channelInheritance.Volume = "reference-override"
 		}
 		if chRef.Delay != nil {
 			channel.Delay = *chRef.Delay
+			channelInheritance.Delay = "reference-override"
 		}
 
+		config.Inheritance.Channels[channel.Name] = channelInheritance
 		config.Channels = append(config.Channels, channel)
 	}
+
+	// Initialize audio inheritance info
+	config.Inheritance.Audio.SampleRate = "profile-specific"
+	config.Inheritance.Audio.Interface = "profile-specific"
+	config.Inheritance.Audio.Backend = "profile-specific"
+
+	// Initialize output inheritance info
+	config.Inheritance.Output.Directory = "profile-specific"
+	config.Inheritance.Output.Format = "profile-specific"
 
 	return config, nil
 }
@@ -925,10 +964,6 @@ func validateDefinitions(definitions *DefinitionsConfig) error {
 
 // validateChannelDefinition validates a single channel definition
 func validateChannelDefinition(def ChannelDefinition, prefix string) error {
-	if def.Name == "" {
-		return fmt.Errorf("%s: 'name' is required", prefix)
-	}
-
 	if len(def.Sources) == 0 {
 		return fmt.Errorf("%s: 'sources' is required and cannot be empty", prefix)
 	}
@@ -982,6 +1017,8 @@ func validateChannelDefinition(def ChannelDefinition, prefix string) error {
 
 // validateChannelReferences validates channel references in a config profile
 func validateChannelReferences(channels []ChannelReference, definitions *DefinitionsConfig, configName string) error {
+	seenNames := make(map[string]int)
+
 	for i, chRef := range channels {
 		prefix := fmt.Sprintf("channels[%d]", i)
 
@@ -990,19 +1027,31 @@ func validateChannelReferences(channels []ChannelReference, definitions *Definit
 		}
 
 		// Verify the reference exists
-		found := false
+		var definition *ChannelDefinition
 		if definitions != nil {
 			for _, def := range definitions.Channels {
 				if def.ID == chRef.Ref {
-					found = true
+					definition = &def
 					break
 				}
 			}
 		}
 
-		if !found {
+		if definition == nil {
 			return fmt.Errorf("%s: references undefined channel definition '%s'", prefix, chRef.Ref)
 		}
+
+		// Determine the effective channel name
+		channelName := chRef.Name
+		if channelName == "" {
+			channelName = definition.ID
+		}
+
+		// Check for name uniqueness within this config
+		if prevIndex, exists := seenNames[channelName]; exists {
+			return fmt.Errorf("%s: channel name '%s' already used by channels[%d]", prefix, channelName, prevIndex)
+		}
+		seenNames[channelName] = i
 
 		// Validate overrides
 		if chRef.Volume != nil && *chRef.Volume <= 0 {

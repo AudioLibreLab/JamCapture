@@ -229,6 +229,17 @@ supported_audio_extensions: [flac, wav, mp3]
 - Audio mixing with individual track processing
 - File integrity validation
 - Audio signal detection (verifies actual content)
+- **Configuration validation**: ID/name system functionality
+
+### Configuration Validation Tests
+```bash
+./tests/simple-config-test.sh
+```
+**What it tests**:
+- Name fallback: `ref: guitar_input` → `name: "guitar_input"`
+- Name override: `ref: guitar_input, name: "Lead"` → `name: "Lead"`
+- Duplicate name detection: Prevents same name in one config
+- Channel reuse: Same definition with different names/overrides
 
 ### Unit Testing
 - **buildFFmpegCommand tests**: Validates command generation with metadata
@@ -240,12 +251,12 @@ supported_audio_extensions: [flac, wav, mp3]
 ## 📈 Development Progress & History
 
 ### ✅ Latest Updates (Current)
-1. **Profile Locking System**: Prevents concurrent profile modifications during recording
-2. **Optimized Profile Loading**: Removed unnecessary polling, load only on-demand
-3. **Enhanced Error Messages**: Specific feedback for deleted/changed profiles
-4. **One Track Per Channel**: Each channel → separate track with metadata
-5. **Unified Channel Config**: Merged `mix.channels` into main `channels[]`
-6. **Comprehensive Tests**: Unit tests for buildFFmpegCommand function
+1. **ID/Name System Refactoring**: Clean separation between channel IDs and display names
+2. **Enhanced Configuration Validation**: Duplicate prevention for both IDs and names
+3. **Channel Reuse Support**: Same definition referenced with different names/settings
+4. **Name Fallback Logic**: Automatic `name = id` when no custom name provided
+5. **E2E Configuration Tests**: Comprehensive validation of new ID/name features
+6. **Comprehensive Tests**: Unit and E2E tests for all configuration scenarios
 
 ### ✅ Recently Completed
 1. **Service Layer Architecture**: Unified interface between CLI/Web

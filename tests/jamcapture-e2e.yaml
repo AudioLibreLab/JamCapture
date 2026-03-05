@@ -7,7 +7,6 @@ active_config: "e2e"
 definitions:
   channels:
     - id: test_guitar
-      name: "guitar"
       type: "input"
       sources:
         - "paplay_guitar:output_FL"
@@ -16,7 +15,6 @@ definitions:
       delay: 0
 
     - id: test_backing
-      name: "backing"
       type: "monitor"
       sources:
         - "paplay_backing:output_FL"
@@ -36,7 +34,9 @@ configs:
     # 2. paplay_backing - simulates backing track/monitor audio
     channels:
       - ref: test_guitar
+        name: "guitar"
       - ref: test_backing
+        name: "backing"
 
     output:
       directory: "/tmp/jamcapture-test"

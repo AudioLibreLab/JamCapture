@@ -107,4 +107,7 @@ else
     exit 1
 fi
 
+echo "--- 🧪 Running Configuration Validation Tests ---"
+"$DIR/simple-config-test.sh"
+
 echo "--- ✨ Test Finished ---"

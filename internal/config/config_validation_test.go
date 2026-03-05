@@ -14,7 +14,6 @@ active_config: test
 definitions:
   channels:
     - id: test_guitar
-      name: guitar
       type: input
       sources:
         - system:capture_1
@@ -23,7 +22,6 @@ definitions:
       delay: 0
 
     - id: test_monitor
-      name: monitor
       type: monitor
       sources:
         - system:monitor_FL
@@ -36,8 +34,10 @@ configs:
   test:
     channels:
       - ref: test_guitar
+        name: guitar
         volume: 3.0
       - ref: test_monitor
+        name: monitor
         delay: 200
     output:
       directory: ~/Audio/Test
@@ -70,7 +70,7 @@ supported_audio_extensions:
 
 	// Check first definition
 	def := rootConfig.Definitions.Channels[0]
-	if def.ID != "test_guitar" || def.Name != "guitar" || def.Type != "input" {
+	if def.ID != "test_guitar" || def.Type != "input" {
 		t.Errorf("Invalid first definition: %+v", def)
 	}
 
@@ -242,26 +242,11 @@ definitions:
 			expectedErr: "'id' is required",
 		},
 		{
-			name: "missing name",
-			config: `
-definitions:
-  channels:
-    - id: test_guitar
-      type: input
-      sources:
-        - system:capture_1
-      audiomode: mono
-      volume: 2.0
-`,
-			expectedErr: "'name' is required",
-		},
-		{
 			name: "invalid type",
 			config: `
 definitions:
   channels:
     - id: test_guitar
-      name: guitar
       type: invalid
       sources:
         - system:capture_1
@@ -276,7 +261,6 @@ definitions:
 definitions:
   channels:
     - id: test_guitar
-      name: guitar
       type: input
       sources:
         - system:capture_1
@@ -291,7 +275,6 @@ definitions:
 definitions:
   channels:
     - id: test_guitar
-      name: guitar
       type: input
       sources:
         - system:capture_1
@@ -306,7 +289,6 @@ definitions:
 definitions:
   channels:
     - id: test_guitar
-      name: guitar
       type: input
       sources:
         - system:capture_1
@@ -322,7 +304,6 @@ definitions:
 definitions:
   channels:
     - id: test_chrome
-      name: chrome
       type: monitor
       sources:
         - Chrome:output_FL
@@ -337,7 +318,6 @@ definitions:
 definitions:
   channels:
     - id: test_guitar
-      name: guitar
       type: input
       sources:
         - system:capture_1
@@ -417,7 +397,6 @@ active_config: test
 definitions:
   channels:
     - id: test_guitar
-      name: guitar
       type: input
       sources:
         - system:capture_1
@@ -450,7 +429,6 @@ func TestConvertProfileToConfig_ValidProfile(t *testing.T) {
 		Channels: []ChannelDefinition{
 			{
 				ID:        "test_guitar",
-				Name:      "guitar",
 				Type:      "input",
 				Sources:   []string{"system:capture_1"},
 				AudioMode: "mono",
@@ -459,7 +437,6 @@ func TestConvertProfileToConfig_ValidProfile(t *testing.T) {
 			},
 			{
 				ID:        "test_monitor",
-				Name:      "monitor",
 				Type:      "monitor",
 				Sources:   []string{"system:monitor_FL", "system:monitor_FR"},
 				AudioMode: "stereo",
@@ -477,10 +454,12 @@ func TestConvertProfileToConfig_ValidProfile(t *testing.T) {
 		Channels: []ChannelReference{
 			{
 				Ref:    "test_guitar",
+				Name:   "guitar",
 				Volume: &[]float64{3.5}[0], // Override volume
 			},
 			{
 				Ref:   "test_monitor",
+				Name:  "monitor",
 				Delay: &[]int{200}[0], // Override delay
 			},
 		},
@@ -532,8 +511,12 @@ func TestConvertProfileToConfig_MissingReference(t *testing.T) {
 	definitions := &DefinitionsConfig{
 		Channels: []ChannelDefinition{
 			{
-				ID:   "existing_channel",
-				Name: "guitar",
+				ID:        "existing_channel",
+				Type:      "input",
+				Sources:   []string{"system:capture_1"},
+				AudioMode: "mono",
+				Volume:    2.0,
+				Delay:     0,
 			},
 		},
 	}

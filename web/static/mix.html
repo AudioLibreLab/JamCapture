@@ -846,6 +846,7 @@
                 <div class="file-actions">
                     <button onclick="selectMKVFile('${file.name}')" class="secondary">🎛️ Mix</button>
                     <button onclick="downloadMKVFile('${file.name}')" class="secondary">📥 Download</button>
+                    <button onclick="deleteMKVFile('${file.name}')" class="secondary" style="color: var(--pico-color-danger);">🗑️ Delete</button>
                 </div>
             `;
 
@@ -895,6 +896,41 @@
             } else {
                 showAlert('Download URL not available for this file', 'error');
             }
+        }
+
+        // Delete MKV file with confirmation
+        function deleteMKVFile(filename) {
+            if (!confirm(`Are you sure you want to delete the MKV file "${filename}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            fetch(`/api/files/delete/${encodeURIComponent(filename)}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(`Successfully deleted: ${filename}`, 'success');
+                    // Remove the file from the local arrays
+                    allMKVFiles = allMKVFiles.filter(f => f.name !== filename);
+                    filterAndSortMKVFiles();
+                    renderMKVList();
+
+                    // If this was the selected file, hide the track mixer
+                    if (selectedFile === filename) {
+                        selectedFile = null;
+                        trackAnalysis = null;
+                        hideTrackMixer();
+                        showAlert('The selected file was deleted. Track mixer has been reset.', 'info');
+                    }
+                } else {
+                    showAlert('Failed to delete file: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Delete request failed:', error);
+                showAlert('Failed to delete file: Network error', 'error');
+            });
         }
 
         // Update MKV pagination controls with page numbers
@@ -1112,11 +1148,8 @@
                     if (data.success) {
                         showAlert(`Mix created successfully: ${data.output_file}`, 'success');
 
-                        // Update the player with the new mix
-                        setupAudioPlayer(data.output_file, {
-                            size_human: 'Just created',
-                            mod_time: new Date().toLocaleString()
-                        });
+                        // Reload the last mixed file info to get actual file stats
+                        loadLastMixedFile();
 
                         // Scroll to player
                         document.querySelector('.audio-player-section').scrollIntoView({ behavior: 'smooth' });
