@@ -1,21 +1,21 @@
 <div align="center">
   <img src="images/logo.png" alt="JamCapture Logo" width="200" height="200">
   <h1>JamCapture</h1>
-  <p><em>A professional audio recording tool for musicians with mobile-optimized web interface.</em></p>
+  <p><em>A professional audio recording tool for musicians with web interface.</em></p>
 </div>
 
 ## Features
 
-- **Mobile-First Web Interface**: Control recording from your smartphone while playing
+- **Web Interface**: Control recording from your browser/smartphone while playing
 - **Multi-channel Recording**: Capture guitar, microphone, and system audio via JACK/PipeWire
 - **Smart Mixing**: Automatic track mixing with volume control and latency compensation
-- **Profile System**: YAML-based configuration with inheritance and multiple recording setups
+- **Profile System**: YAML-based configuration with multiple recording setups
 - **Real-time Monitoring**: Live status updates, audio source detection, and log streaming
 - **File Management**: Built-in audio player, file browser, and backing track support
 
 <div align="center">
   <img src="images/Screenshot-main-page.png" alt="JamCapture Web Interface" width="600">
-  <p><em>Mobile-optimized web interface for smartphone recording control</em></p>
+  <p><em>Web interface for browser/smartphone recording control</em></p>
 </div>
 
 ## Installation
@@ -32,19 +32,7 @@ sudo mv jamcapture /usr/local/bin/
 curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-linux-arm64
 chmod +x jamcapture
 sudo mv jamcapture /usr/local/bin/
-
-# macOS (Intel)
-curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-darwin-amd64
-chmod +x jamcapture
-sudo mv jamcapture /usr/local/bin/
-
-# macOS (Apple Silicon)
-curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-darwin-arm64
-chmod +x jamcapture
-sudo mv jamcapture /usr/local/bin/
 ```
-
-For Windows, download `jamcapture-windows-amd64.exe` from the [latest release](https://github.com/AudioLibreLab/JamCapture/releases/latest).
 
 ### Build from Source
 
@@ -120,10 +108,10 @@ See `examples/pipewire.yaml` for complete configuration examples.
 
 ## Web Interface Usage
 
-### Smartphone Recording Control
+### Recording Control
 
 1. **Start the server**: `./jamcapture serve --port 8080`
-2. **Open on mobile**: Visit the displayed network URL (e.g., `http://192.168.1.15:8080`)
+2. **Open on browser**: Visit the displayed network URL (e.g., `http://192.168.1.15:8080`)
 3. **Select profile**: Choose your recording setup (studio, guitar-only, etc.)
 4. **Enter song name**: Name your recording session
 5. **Ready**: Prepare recording (connects audio sources)
@@ -139,23 +127,6 @@ See `examples/pipewire.yaml` for complete configuration examples.
 - **File Browser**: Stream, download, and manage recordings
 - **Backing Tracks**: Upload and play along functionality
 - **Mobile-optimized**: Responsive design with dark/light themes
-
-### API Endpoints
-
-```bash
-# Recording control
-curl -X POST http://localhost:8080/ready -d "song=test&profile=studio"
-curl -X POST http://localhost:8080/record
-curl -X POST http://localhost:8080/stop
-
-# System monitoring
-curl http://localhost:8080/status
-curl http://localhost:8080/sources
-
-# File management
-curl http://localhost:8080/api/files
-curl http://localhost:8080/api/latest-recording
-```
 
 ## Profile System
 
