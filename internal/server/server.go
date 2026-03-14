@@ -2887,7 +2887,8 @@ func (s *Server) handleMixStream(w http.ResponseWriter, r *http.Request) {
 	// Set headers for audio streaming
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	// Mixes change frequently, so use shorter cache time
+	w.Header().Set("Cache-Control", "public, max-age=60") // 1 minute cache for mixes
 
 	// Serve the file
 	http.ServeFile(w, r, filePath)

@@ -714,16 +714,61 @@
             const playerStatus = document.getElementById('player-status');
             const audioPlayer = document.getElementById('audio-player');
             const fileInfoDiv = document.getElementById('file-info-player');
+            const audioError = document.getElementById('audio-error');
 
             playerStatus.textContent = `Last Mixed: ${filename}`;
-            audioPlayer.src = `/api/mix/stream/${encodeURIComponent(filename)}`;
+
+            // Force reload by clearing src first and adding cache-busting timestamp
+            audioPlayer.src = '';
+            audioPlayer.load(); // Force reload
+            const timestamp = new Date().getTime();
+            audioPlayer.src = `/api/mix/stream/${encodeURIComponent(filename)}?t=${timestamp}`;
+
             audioPlayer.classList.remove('hidden');
+            audioError.classList.add('hidden'); // Clear any previous error
+
+            // Add error handling for audio playback
+            audioPlayer.addEventListener('error', function(e) {
+                console.error('Mix playback error:', e, audioPlayer.error);
+                const error = audioPlayer.error;
+                let errorMessage = 'Error playing mix: ';
+
+                if (error) {
+                    switch(error.code) {
+                        case error.MEDIA_ERR_ABORTED:
+                            errorMessage += 'Playback was aborted';
+                            break;
+                        case error.MEDIA_ERR_NETWORK:
+                            errorMessage += 'Network error occurred';
+                            break;
+                        case error.MEDIA_ERR_DECODE:
+                            errorMessage += 'Codec not supported or file corrupted. Try converting to WAV/MP3.';
+                            break;
+                        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                            errorMessage += 'FLAC format not supported by this browser. Try converting to WAV/MP3.';
+                            break;
+                        default:
+                            errorMessage += 'Unknown error occurred';
+                    }
+                }
+
+                audioError.innerHTML = errorMessage;
+                audioError.classList.remove('hidden');
+                playerStatus.textContent = 'Playback error - see details below';
+            });
+
+            // Add success event for when metadata loads
+            audioPlayer.addEventListener('loadedmetadata', function() {
+                console.log('Mix metadata loaded successfully:', filename);
+                audioError.classList.add('hidden'); // Hide error message if playback works
+            });
 
             if (fileInfo) {
                 fileInfoDiv.innerHTML = `
                     <strong>File:</strong> ${filename}<br>
                     <strong>Size:</strong> ${fileInfo.size_human || ''}<br>
-                    <strong>Modified:</strong> ${fileInfo.mod_time || ''}
+                    <strong>Modified:</strong> ${fileInfo.mod_time || ''}<br>
+                    <strong>Format:</strong> ${filename.split('.').pop().toUpperCase()}
                 `;
                 fileInfoDiv.classList.remove('hidden');
             }
@@ -1179,6 +1224,7 @@
                 }, 5000);
             }
         }
+
 
         // Display track mixer interface (updated)
         function displayTrackMixer() {
