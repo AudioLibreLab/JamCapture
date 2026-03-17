@@ -144,6 +144,26 @@ pw-jack ffmpeg -f jack -channels 4 -i jamcapture_rec -ar 48000 \
 
 ## ⚙️ Configuration
 
+### Audio Source Discovery
+
+To discover available audio sources for configuration:
+
+```bash
+# Install PipeWire utilities (Ubuntu/Debian)
+sudo apt-get install pipewire-utils
+
+# List all available audio ports (inputs and outputs)
+pw-link -io
+
+# Example output:
+# Scarlett 2i2 3rd Gen:capture_FL    (input)
+# Scarlett 2i2 3rd Gen:capture_FR    (input)
+# Chrome:output_FL                   (output)
+# Chrome:output_FR                   (output)
+```
+
+Use the exact port names from `pw-link -io` output in your configuration's `sources` fields.
+
 ### Modern Configuration Structure (Reference-Based)
 ```yaml
 active_config: "xr18_studio"

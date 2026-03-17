@@ -1,8 +1,24 @@
-active_config: xr18_studio
+active_config: scarlett_studio
 audio:
     backend: pipewire
     sample_rate: 48000
 configs:
+    scarlett_studio:
+        auto_mix: true
+        channels:
+            - ref: 2i2_guitar
+            - ref: 2i2_microphone
+            - ref: chrome_stereo
+              volume: 0.6  # Override volume
+        output:
+            format: flac
+    guitar_only:
+        auto_mix: true
+        channels:
+            - ref: 2i2_guitar
+              volume: 5.0  # Boost for solo recording
+        output:
+            format: wav
     carla:
         auto_mix: true
         channels:
@@ -26,6 +42,26 @@ configs:
             format: flac
 definitions:
     channels:
+        - id: 2i2_guitar
+          name: guitar
+          sources: ["alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FR"]
+          audioMode: mono
+          type: input
+          volume: 4.0
+          delay: 0
+        - id: 2i2_microphone
+          name: microphone
+          sources: ["alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL"]
+          audioMode: mono
+          type: input
+          volume: 3.0
+          delay: 0
+        - id: chrome_stereo
+          name: chrome
+          sources: ["Chrome:output_FL", "Chrome:output_FR"]
+          audioMode: stereo
+          type: monitor
+          volume: 0.8
         - audiomode: mono
           delay: 0
           id: carla

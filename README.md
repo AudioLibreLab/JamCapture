@@ -56,10 +56,35 @@ go build
 
 ## Configuration
 
+### Audio Source Discovery
+
+First, discover your audio interface sources:
+
+```bash
+# Install PipeWire utilities (Ubuntu/Debian)
+sudo apt-get install pipewire-utils
+
+# List all available audio sources
+pw-link -io
+
+# Filter for specific hardware (e.g., Scarlett interface)
+pw-link -io | grep -i scarlett
+```
+
+Example Scarlett 2i2 output:
+```
+alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL
+alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FR
+alsa_output.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:playback_FL
+alsa_output.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:playback_FR
+```
+
+### Configuration Example
+
 JamCapture uses a modern reference-based configuration system:
 
 ```yaml
-active_config: "xr18_studio"
+active_config: "scarlett_studio"
 
 # Global settings
 audio:
@@ -76,10 +101,18 @@ definitions:
   channels:
     - id: guitar
       name: guitar
-      sources: ["Scarlett 2i2 3rd Gen:capture_FR"]
+      sources: ["alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FR"]
       audioMode: mono
       type: input
       volume: 4.0
+      delay: 0
+
+    - id: microphone
+      name: microphone
+      sources: ["alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL"]
+      audioMode: mono
+      type: input
+      volume: 3.0
       delay: 0
 
     - id: chrome_stereo
@@ -92,17 +125,28 @@ definitions:
 
 # Recording profiles
 configs:
-  studio:
+  scarlett_studio:
     auto_mix: true
     channels:
       - ref: guitar
+      - ref: microphone
       - ref: chrome_stereo
         volume: 0.6  # Override volume
     output:
       format: flac
 
+  guitar_only:
+    auto_mix: true
+    channels:
+      - ref: guitar
+        volume: 5.0  # Boost for solo recording
+    output:
+      format: wav
+
 supported_audio_extensions: [flac, wav, mp3]
 ```
+
+**Important**: Use the exact port names from `pw-link -io` output in your `sources` fields.
 
 See `examples/pipewire.yaml` for complete configuration examples.
 
