@@ -192,10 +192,38 @@ Profiles are automatically loaded and can be switched in the web interface dropd
 
 ## Requirements
 
+### System Requirements
+
+- **PipeWire**: Must be active and running on the system
 - **FFmpeg**: For audio recording and mixing
-- **PipeWire with JACK support**: `pw-jack` command must be available
+- **PipeWire JACK support**: `pw-jack` command must be available
 - **Modern web browser**: For mobile interface (Chrome, Firefox, Safari)
 - **Audio interface**: Hardware with JACK-compatible drivers
+
+### Verify PipeWire Status
+
+Check that PipeWire is running before using JamCapture:
+
+```bash
+# Check PipeWire service status
+systemctl --user status pipewire
+
+# Verify PipeWire is processing audio
+pw-cli list-objects
+
+# Check JACK support is available
+which pw-jack
+```
+
+If PipeWire is not running, start it:
+
+```bash
+# Start PipeWire service
+systemctl --user start pipewire pipewire-pulse
+
+# Enable auto-start on boot
+systemctl --user enable pipewire pipewire-pulse
+```
 
 ## Development
 
