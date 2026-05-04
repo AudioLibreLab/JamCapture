@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"fyne.io/systray"
@@ -25,7 +26,7 @@ type SystemTray struct {
 	menuStop     *systray.MenuItem
 	menuWebUI    *systray.MenuItem
 	menuStatus   *systray.MenuItem
-	menuSettings *systray.MenuItem
+	menuPlayLast *systray.MenuItem
 	menuQuit     *systray.MenuItem
 
 	// Context for cleanup
@@ -88,9 +89,7 @@ func (st *SystemTray) setupMenu() {
 
 	systray.AddSeparator()
 
-	// Settings submenu
-	st.menuSettings = systray.AddMenuItem("⚙️ Settings", "Application settings")
-	// TODO: Add profile selection submenu in future
+	st.menuPlayLast = systray.AddMenuItem("🎵 Play Last", "Play last recording with default audio player")
 
 	systray.AddSeparator()
 	st.menuQuit = systray.AddMenuItem("❌ Quit", "Quit JamCapture")
@@ -112,8 +111,8 @@ func (st *SystemTray) handleMenuEvents() {
 		case <-st.menuWebUI.ClickedCh:
 			st.handleWebUI()
 
-		case <-st.menuSettings.ClickedCh:
-			st.handleSettings()
+		case <-st.menuPlayLast.ClickedCh:
+			st.handlePlayLast()
 
 		case <-st.menuQuit.ClickedCh:
 			systray.Quit()
@@ -124,9 +123,8 @@ func (st *SystemTray) handleMenuEvents() {
 
 // handleRecord starts recording with user input for song name
 func (st *SystemTray) handleRecord() {
-	// For now, use a simple timestamp-based song name
-	// In a real implementation, you'd want a proper dialog
-	songName := "recording_" + time.Now().Format("20060102_150405")
+	// Use a user-friendly default song name
+	songName := "My_song_" + time.Now().Format("20060102")
 
 	slog.Info("Starting recording", "song_name", songName)
 
@@ -151,6 +149,17 @@ func (st *SystemTray) handleStop() {
 	}
 
 	st.showNotification("Recording Stopped", fmt.Sprintf("Recording '%s' has been stopped", st.currentSong))
+
+	// Auto-mix the recording to create FLAC file
+	slog.Info("Auto-mixing recording", "song_name", st.currentSong)
+	if err := st.service.Mix(st.currentSong); err != nil {
+		slog.Error("Failed to auto-mix recording", "error", err)
+		st.showNotification("Mix Failed", fmt.Sprintf("Recording stopped but auto-mix failed: %v", err))
+	} else {
+		slog.Info("Auto-mix completed", "song_name", st.currentSong)
+		st.showNotification("Mix Complete", fmt.Sprintf("'%s' has been mixed and is ready", st.currentSong))
+	}
+
 	st.currentSong = ""
 }
 
@@ -174,9 +183,31 @@ func (st *SystemTray) handleWebUI() {
 	}
 }
 
-// handleSettings shows settings (placeholder for now)
-func (st *SystemTray) handleSettings() {
-	st.showNotification("Settings", "Settings panel not implemented yet")
+// handlePlayLast plays the last recorded file with the default audio player
+func (st *SystemTray) handlePlayLast() {
+	// Get the last mixed file from the service
+	lastFile := st.service.GetLastMixedFile()
+	if lastFile == "" {
+		st.showNotification("No Recording", "No recording available to play")
+		return
+	}
+
+	slog.Info("Playing last recording", "file", lastFile)
+
+	// Create a player and play the file
+	// Extract song name from the file (remove extension)
+	songName := lastFile
+	if dotIndex := strings.LastIndex(lastFile, "."); dotIndex > 0 {
+		songName = lastFile[:dotIndex]
+	}
+
+	if err := st.service.Play(songName); err != nil {
+		slog.Error("Failed to play last recording", "error", err)
+		st.showNotification("Playback Failed", fmt.Sprintf("Failed to play recording: %v", err))
+		return
+	}
+
+	st.showNotification("Playing", fmt.Sprintf("Playing '%s'", lastFile))
 }
 
 // monitorStatus periodically checks and updates the recording status
@@ -228,23 +259,21 @@ func (st *SystemTray) updateStatus() {
 
 // updateIcon updates the system tray display based on status
 func (st *SystemTray) updateIcon(status string) {
-	// Set the icon (PNG data)
-	iconData := GetIcon(status)
-	if iconData != nil {
-		systray.SetIcon(iconData)
-	}
+	// Try setting both icon and title for maximum compatibility
+	icon := GetIcon(status)
+	systray.SetIcon(icon)
 
-	// Set title with status indicator as well (for extra visibility)
+	// Set title for better status visibility - use clear indicators
 	var title string
 	switch status {
 	case "RECORDING":
-		title = "🔴" // Red circle for recording
+		title = "◉ JC REC" // Filled circle for recording
 	case "READY":
-		title = "🟡" // Yellow circle for ready
+		title = "◐ JC RDY" // Half circle for ready
 	case "ERROR":
-		title = "🔶" // Orange diamond for error
+		title = "✗ JC ERR" // X for error
 	default:
-		title = "" // No title when using icon
+		title = "○ JC" // Empty circle for standby
 	}
 	systray.SetTitle(title)
 
