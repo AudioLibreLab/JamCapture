@@ -36,6 +36,8 @@ configs:
               ref: xr18_2
             - name: ch3
               ref: xr18_3
+            - name: ch9
+              ref: xr18_9
             - name: aux
               ref: xr18_aux
         output:
@@ -93,6 +95,13 @@ definitions:
           id: xr18_2
           sources:
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX1
+          type: input
+          volume: 4
+        - audiomode: mono
+          delay: 0
+          id: xr18_9
+          sources:
+            - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX8
           type: input
           volume: 4
         - audiomode: mono

@@ -115,7 +115,7 @@ func (st *SystemTray) handleMenuEvents() {
 			st.handlePlayLast()
 
 		case <-st.menuQuit.ClickedCh:
-			systray.Quit()
+			st.handleQuit()
 			return
 		}
 	}
@@ -208,6 +208,33 @@ func (st *SystemTray) handlePlayLast() {
 	}
 
 	st.showNotification("Playing", fmt.Sprintf("Playing '%s'", lastFile))
+}
+
+// handleQuit properly shuts down the entire application
+func (st *SystemTray) handleQuit() {
+	slog.Info("User requested shutdown via systray")
+
+	// Stop any active recording first
+	if st.currentSong != "" {
+		slog.Info("Stopping active recording before shutdown", "song_name", st.currentSong)
+		if err := st.service.StopRecording(); err != nil {
+			slog.Error("Failed to stop recording during shutdown", "error", err)
+		}
+	}
+
+	// Signal the application to shut down gracefully
+	st.cancel()
+
+	// Quit the systray to unblock the main process
+	systray.Quit()
+
+	// Send SIGTERM to ourselves to trigger the signal handler
+	// This ensures proper cleanup of web server and service
+	if pid := os.Getpid(); pid > 0 {
+		if proc, err := os.FindProcess(pid); err == nil {
+			proc.Signal(os.Interrupt) // SIGINT for graceful shutdown
+		}
+	}
 }
 
 // monitorStatus periodically checks and updates the recording status

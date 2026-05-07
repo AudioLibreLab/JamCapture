@@ -48,9 +48,34 @@ The recording will be saved as an MKV file with separate tracks for guitar and b
 		<-sigChan
 		slog.Info("Stopping recording...")
 
-		// Stop recording
-		if err := svc.StopRecording(); err != nil {
-			return fmt.Errorf("failed to stop recording: %w", err)
+		// Check current status and stop appropriately
+		status, _ := svc.GetRecordingStatus()
+		switch status {
+		case service.StatusRecording:
+			// Recording in progress, stop recording
+			if err := svc.StopRecording(); err != nil {
+				return fmt.Errorf("failed to stop recording: %w", err)
+			}
+			slog.Info("Recording stopped successfully")
+
+			// Auto-mix the recording
+			slog.Info("Auto-mixing recording...", "song", songName)
+			if err := svc.Mix(songName); err != nil {
+				slog.Error("Auto-mix failed", "error", err)
+				// Don't return error, the recording was saved successfully
+			} else {
+				slog.Info("Auto-mix completed successfully", "song", songName)
+			}
+
+		case service.StatusReady:
+			// Ready state (waiting for sources), cancel ready
+			if err := svc.CancelReady(); err != nil {
+				return fmt.Errorf("failed to cancel ready state: %w", err)
+			}
+			slog.Info("Ready state cancelled, returned to standby")
+
+		default:
+			slog.Info("No recording in progress, nothing to stop")
 		}
 
 		// Execute pipeline if specified

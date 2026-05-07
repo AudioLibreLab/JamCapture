@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,6 +35,11 @@ type Server struct {
 	profileLock   sync.RWMutex
 	lockedProfile string
 	lockTimestamp time.Time
+
+	// HTTP server management
+	httpServer *http.Server
+	ctx        context.Context
+	cancel     context.CancelFunc
 
 	// Last local file storage
 	lastLocalFile string
@@ -193,70 +199,143 @@ func New(configFile string, port string) (*Server, error) {
 	// Create service
 	svc := service.New(cfg, configFile, nil)
 
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Server{
 		service:       svc,
 		cfg:           cfg,
 		configFile:    configFile,
 		port:          port,
 		activeProfile: activeProfileName,
+		ctx:           ctx,
+		cancel:        cancel,
 	}, nil
+}
+
+// NewWithService creates a new web server instance using an existing service
+func NewWithService(svc service.Service, configFile string, port string) (*Server, error) {
+	// Get config from the existing service
+	cfg := svc.GetConfig()
+
+	// Determine the actual active profile name
+	activeProfileName := getActiveProfileName(configFile)
+
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &Server{
+		service:       svc,
+		cfg:           cfg,
+		configFile:    configFile,
+		port:          port,
+		activeProfile: activeProfileName,
+		ctx:           ctx,
+		cancel:        cancel,
+	}, nil
+}
+
+// GetService returns the underlying service instance for sharing with other components
+func (s *Server) GetService() service.Service {
+	return s.service
 }
 
 // Start starts the web server
 func (s *Server) Start() error {
-	http.HandleFunc("/", s.handleIndex)
-	http.HandleFunc("/config", s.handleConfigPage)
-	http.HandleFunc("/mix", s.handleMixPage)
-	http.HandleFunc("/ready", s.handleStartReady)
-	http.HandleFunc("/cancel", s.handleCancelReady)
-	http.HandleFunc("/stop", s.handleStopRecording)
-	http.HandleFunc("/status", s.handleStatus)
-	http.HandleFunc("/config/profiles", s.handleProfiles)
-	http.HandleFunc("/config/select", s.handleSelectProfile)
-	http.HandleFunc("/config/active", s.handleActiveProfile)
-	http.HandleFunc("/config/lock", s.handleLockProfile)
-	http.HandleFunc("/config/unlock", s.handleUnlockProfile)
-	http.HandleFunc("/config/details/", s.handleProfileDetails)
-	http.HandleFunc("/sources", s.handleSources)
-	http.HandleFunc("/api/files", s.handleFiles)
-	http.HandleFunc("/api/files/stream/", s.handleFileStream)
-	http.HandleFunc("/api/files/download/", s.handleFileDownload)
-	http.HandleFunc("/api/files/delete/", s.handleFileDelete)
-	http.HandleFunc("/api/config/create", s.handleCreateConfig)
-	http.HandleFunc("/api/config/update/", s.handleUpdateConfig)
-	http.HandleFunc("/api/config/delete/", s.handleDeleteConfig)
-	http.HandleFunc("/api/config/clone/", s.handleCloneConfig)
+	// Create a new ServeMux for this server instance
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.handleIndex)
+	mux.HandleFunc("/config", s.handleConfigPage)
+	mux.HandleFunc("/mix", s.handleMixPage)
+	mux.HandleFunc("/ready", s.handleStartReady)
+	mux.HandleFunc("/cancel", s.handleCancelReady)
+	mux.HandleFunc("/stop", s.handleStopRecording)
+	mux.HandleFunc("/status", s.handleStatus)
+	mux.HandleFunc("/config/profiles", s.handleProfiles)
+	mux.HandleFunc("/config/select", s.handleSelectProfile)
+	mux.HandleFunc("/config/active", s.handleActiveProfile)
+	mux.HandleFunc("/config/lock", s.handleLockProfile)
+	mux.HandleFunc("/config/unlock", s.handleUnlockProfile)
+	mux.HandleFunc("/config/details/", s.handleProfileDetails)
+	mux.HandleFunc("/sources", s.handleSources)
+	mux.HandleFunc("/api/files", s.handleFiles)
+	mux.HandleFunc("/api/files/stream/", s.handleFileStream)
+	mux.HandleFunc("/api/files/download/", s.handleFileDownload)
+	mux.HandleFunc("/api/files/delete/", s.handleFileDelete)
+	mux.HandleFunc("/api/config/create", s.handleCreateConfig)
+	mux.HandleFunc("/api/config/update/", s.handleUpdateConfig)
+	mux.HandleFunc("/api/config/delete/", s.handleDeleteConfig)
+	mux.HandleFunc("/api/config/clone/", s.handleCloneConfig)
 	// Audio player endpoints
-	http.HandleFunc("/api/latest-recording", s.handleLatestRecording)
-	http.HandleFunc("/api/recording/", s.handleRecordingStream)
-	http.HandleFunc("/api/set-local-file", s.handleSetLocalFile)
-	http.HandleFunc("/api/get-local-file", s.handleGetLocalFile)
-	http.HandleFunc("/api/upload-local-file", s.handleUploadLocalFile)
-	http.HandleFunc("/api/backingtrack/", s.handleBackingtrackStream)
+	mux.HandleFunc("/api/latest-recording", s.handleLatestRecording)
+	mux.HandleFunc("/api/recording/", s.handleRecordingStream)
+	mux.HandleFunc("/api/set-local-file", s.handleSetLocalFile)
+	mux.HandleFunc("/api/get-local-file", s.handleGetLocalFile)
+	mux.HandleFunc("/api/upload-local-file", s.handleUploadLocalFile)
+	mux.HandleFunc("/api/backingtrack/", s.handleBackingtrackStream)
 	// Backing tracks API
-	http.HandleFunc("/api/backingtracks", s.handleBackingtracks)
-	http.HandleFunc("/api/backingtracks/selected", s.handleSelectedBackingtrack)
-	http.HandleFunc("/api/backingtracks/select", s.handleSelectBackingtrack)
-	http.HandleFunc("/api/backingtracks/convert", s.handleConvertToBackingtrack)
-	http.HandleFunc("/api/backingtracks/stream/", s.handleBackingtrackStreamNew)
-	http.HandleFunc("/api/backingtracks/download/", s.handleBackingtrackDownload)
-	http.HandleFunc("/api/backingtracks/delete/", s.handleDeleteBackingtrack)
+	mux.HandleFunc("/api/backingtracks", s.handleBackingtracks)
+	mux.HandleFunc("/api/backingtracks/selected", s.handleSelectedBackingtrack)
+	mux.HandleFunc("/api/backingtracks/select", s.handleSelectBackingtrack)
+	mux.HandleFunc("/api/backingtracks/convert", s.handleConvertToBackingtrack)
+	mux.HandleFunc("/api/backingtracks/stream/", s.handleBackingtrackStreamNew)
+	mux.HandleFunc("/api/backingtracks/download/", s.handleBackingtrackDownload)
+	mux.HandleFunc("/api/backingtracks/delete/", s.handleDeleteBackingtrack)
 	// Mix API
-	http.HandleFunc("/api/mix/files", s.handleMixFiles)
-	http.HandleFunc("/api/mix/analyze/", s.handleMixAnalyze)
-	http.HandleFunc("/api/mix/render", s.handleMixRender)
-	http.HandleFunc("/api/mix/stream/", s.handleMixStream)
-	http.HandleFunc("/api/mix/last-mixed", s.handleLastMixed)
+	mux.HandleFunc("/api/mix/files", s.handleMixFiles)
+	mux.HandleFunc("/api/mix/analyze/", s.handleMixAnalyze)
+	mux.HandleFunc("/api/mix/render", s.handleMixRender)
+	mux.HandleFunc("/api/mix/stream/", s.handleMixStream)
+	mux.HandleFunc("/api/mix/last-mixed", s.handleLastMixed)
 
 	// Get local IP address
 	localIP := getLocalIP()
+
+	// Create HTTP server with graceful shutdown
+	s.httpServer = &http.Server{
+		Addr:    ":" + s.port,
+		Handler: mux,
+	}
 
 	slog.Info("Starting JamCapture Web Server",
 		"port", s.port,
 		"local_url", fmt.Sprintf("http://%s:%s", localIP, s.port),
 		"localhost_url", fmt.Sprintf("http://localhost:%s", s.port))
 
-	return http.ListenAndServe(":"+s.port, nil)
+	// Start server in a goroutine and handle shutdown
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- s.httpServer.ListenAndServe()
+	}()
+
+	// Wait for context cancellation or server error
+	select {
+	case <-s.ctx.Done():
+		slog.Info("Shutting down web server...")
+		// Create a timeout context for shutdown
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+
+		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
+			slog.Error("Web server shutdown error", "error", err)
+			return err
+		}
+		slog.Info("Web server shut down gracefully")
+		return nil
+	case err := <-errChan:
+		if err != http.ErrServerClosed {
+			return err
+		}
+		return nil
+	}
+}
+
+// Shutdown gracefully shuts down the web server
+func (s *Server) Shutdown() error {
+	if s.cancel != nil {
+		s.cancel()
+	}
+	return nil
 }
 
 // handleIndex serves the main web UI

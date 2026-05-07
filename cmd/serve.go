@@ -11,9 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/audiolibrelab/jamcapture/internal/config"
 	"github.com/audiolibrelab/jamcapture/internal/server"
-	"github.com/audiolibrelab/jamcapture/internal/service"
 	"github.com/audiolibrelab/jamcapture/internal/systray"
 	"github.com/spf13/cobra"
 )
@@ -73,36 +71,26 @@ func startServer(configPath string, port int, enableTray bool) error {
 	if enableTray {
 		slog.Info("Starting JamCapture with system tray and web server", "port", port, "config", configPath)
 
-		// Load configuration if not already loaded
-		var currentCfg *config.Config
-		var currentCfgFile string
-
-		if cfg != nil {
-			// Use global config if available
-			currentCfg = cfg
-			currentCfgFile = cfgFile
-		} else {
-			// Load config manually for system tray mode
-			var err error
-			currentCfg, err = config.LoadWithProfile(configPath, profile)
-			if err != nil {
-				return fmt.Errorf("failed to load config: %w", err)
-			}
-			currentCfgFile = configPath
+		// Create web server first (it owns the service)
+		portStr := fmt.Sprintf("%d", port)
+		srv, err := server.New(configPath, portStr)
+		if err != nil {
+			return fmt.Errorf("failed to create server: %w", err)
 		}
 
-		// Create service for system tray
-		svc := service.New(currentCfg, currentCfgFile, os.Stdout)
+		// Get the service instance from the server
+		svc := srv.GetService()
 
 		var wg sync.WaitGroup
-		ctx, cancel := context.WithCancel(context.Background())
+		_, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		// Start web server in background
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := startWebServer(ctx, configPath, port); err != nil {
+			slog.Info("Starting web server", "port", port)
+			if err := srv.Start(); err != nil {
 				slog.Error("Web server error", "error", err)
 			}
 		}()
@@ -110,7 +98,7 @@ func startServer(configPath string, port int, enableTray bool) error {
 		// Wait a moment for web server to start
 		time.Sleep(500 * time.Millisecond)
 
-		// Create system tray
+		// Create system tray using the shared service from the server
 		tray := systray.New(svc, port)
 
 		// Handle graceful shutdown
@@ -121,6 +109,8 @@ func startServer(configPath string, port int, enableTray bool) error {
 			<-sigChan
 			slog.Info("Received shutdown signal")
 			cancel()
+			// Shutdown web server first
+			srv.Shutdown()
 			// Quit system tray to unblock Run()
 			tray.Shutdown()
 		}()
@@ -182,3 +172,4 @@ func startWebServer(ctx context.Context, configFile string, port int) error {
 		return err
 	}
 }
+
