@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/audiolibrelab/jamcapture/internal/config"
 	"github.com/audiolibrelab/jamcapture/internal/server"
 	"github.com/audiolibrelab/jamcapture/internal/systray"
 	"github.com/spf13/cobra"
@@ -52,6 +53,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 		slog.Info("System tray disabled by user request")
 	} else if !traySupported {
 		slog.Info("System tray not supported on this system, running in headless mode")
+	}
+
+	// Auto-generate config if absent or invalid
+	if err := ensureValidConfig(configPath); err != nil {
+		return err
 	}
 
 	// Convert port to int for system tray
@@ -142,6 +148,30 @@ func startServer(configPath string, port int, enableTray bool) error {
 
 		return nil
 	}
+}
+
+// ensureValidConfig generates a config if absent. If the file exists but is
+// invalid it returns a clear error — the user should fix it or run
+// 'jamcapture config init' to regenerate.
+func ensureValidConfig(configPath string) error {
+	_, statErr := os.Stat(configPath)
+	if statErr == nil {
+		if _, valErr := config.ValidateConfigurationFormat(configPath); valErr != nil {
+			return fmt.Errorf("invalid config file %s: %w\nFix it manually or run 'jamcapture config init' to regenerate", configPath, valErr)
+		}
+		return nil
+	}
+	if !os.IsNotExist(statErr) {
+		return fmt.Errorf("cannot access config file: %w", statErr)
+	}
+
+	slog.Info("No config file found — auto-detecting audio sources", "path", configPath)
+	if initErr := autoInitConfig(configPath); initErr != nil {
+		return fmt.Errorf("auto-config failed: %w\nRun 'jamcapture config init' or create %s manually", initErr, configPath)
+	}
+	slog.Info("Config written from detected sources", "path", configPath)
+	fmt.Printf("Config written to %s — edit it to customise volumes and profiles.\n", configPath)
+	return nil
 }
 
 // startWebServer starts the web server in the background

@@ -164,18 +164,11 @@ func (pw *PipeWire) connectPorts(sourcePort, destPort string) error {
 // isEphemeralPort determines if a port is ephemeral (may appear/disappear)
 func (pw *PipeWire) isEphemeralPort(portName string) bool {
 	lowerPort := strings.ToLower(portName)
-
-	ephemeralApps := []string{
-		"chrome", "firefox", "spotify", "discord", "steam",
-		"vlc", "mpv", "zoom", "teams", "slack", "wire",
-	}
-
-	for _, app := range ephemeralApps {
+	for _, app := range knownSoftwareApps {
 		if strings.Contains(lowerPort, app) {
 			return true
 		}
 	}
-
 	return false
 }
 

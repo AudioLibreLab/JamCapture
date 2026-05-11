@@ -64,8 +64,8 @@ definitions:
           id: chrome_stereo
           name: chrome
           sources:
-            - Chrome:output_FL
-            - Chrome:output_FR
+            - Google Chrome:output_FL
+            - Google Chrome:output_FR
           type: monitor
           volume: 0.8
         - audiomode: mono

@@ -6,6 +6,7 @@
 
 ## Features
 
+- **Zero-config first run**: `jamcapture serve` auto-detects all audio sources and writes a ready-to-use config
 - **Web Interface**: Control recording from your browser/smartphone while playing
 - **Multi-channel Recording**: Capture guitar, microphone, and system audio via JACK/PipeWire
 - **Smart Mixing**: Automatic track mixing with volume control and latency compensation
@@ -20,16 +21,23 @@
 
 ## Installation
 
-### Latest Release (Recommended)
+### One-liner (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AudioLibreLab/JamCapture/main/install.sh | bash
+```
+
+Installs to `/usr/local/bin/`. For a user-local install (no sudo):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AudioLibreLab/JamCapture/main/install.sh | INSTALL_DIR=~/.local/bin bash
+```
+
+### Manual Download
 
 ```bash
 # Linux (amd64)
 curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-linux-amd64
-chmod +x jamcapture
-sudo mv jamcapture /usr/local/bin/
-
-# Linux (arm64)
-curl -L -o jamcapture https://github.com/AudioLibreLab/JamCapture/releases/latest/download/jamcapture-linux-arm64
 chmod +x jamcapture
 sudo mv jamcapture /usr/local/bin/
 ```
@@ -37,7 +45,6 @@ sudo mv jamcapture /usr/local/bin/
 ### Build from Source
 
 ```bash
-# Clone and build
 git clone https://github.com/AudioLibreLab/JamCapture.git
 cd JamCapture
 go build
@@ -46,109 +53,93 @@ go build
 ## Quick Start
 
 ```bash
-# Start web interface (recommended)
-./jamcapture serve --port 8080
-# Open http://your-ip:8080 on your smartphone
+# Start the web server — auto-detects audio sources and creates config on first run
+jamcapture serve
 
-# With custom configuration
-./jamcapture --config examples/pipewire.yaml serve
+# Open the displayed URL on your smartphone (e.g. http://192.168.1.x:8080)
+```
+
+On first launch with no config, `jamcapture serve` automatically runs `pw-link -io`,
+detects all connected hardware and software audio sources, writes
+`~/.config/jamcapture.yaml`, and starts the server.
+
+To regenerate or inspect the config:
+
+```bash
+jamcapture config init   # re-detect sources and overwrite config (backs up old one)
+jamcapture sources       # list currently available audio sources
+jamcapture config show   # display the resolved active configuration
 ```
 
 ## Configuration
 
-### Audio Source Discovery
+### Auto-generated config
 
-First, discover your audio interface sources:
+On first run, `jamcapture serve` (or `jamcapture config init`) detects all available
+PipeWire/JACK sources and writes `~/.config/jamcapture.yaml` automatically.
 
-```bash
-# Install PipeWire utilities (Ubuntu/Debian)
-sudo apt-get install pipewire-utils
-
-# List all available audio sources
-pw-link -io
-
-# Filter for specific hardware (e.g., Scarlett interface)
-pw-link -io | grep -i scarlett
-```
-
-Example Scarlett 2i2 output:
-```
-alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL
-alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FR
-alsa_output.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:playback_FL
-alsa_output.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:playback_FR
-```
-
-### Configuration Example
-
-JamCapture uses a modern reference-based configuration system:
+For a system with a Scarlett 2i2 and Chrome open, the generated config looks like:
 
 ```yaml
-active_config: "scarlett_studio"
-
-# Global settings
+active_config: default
 audio:
   backend: pipewire
   sample_rate: 48000
-
 globals:
   output:
     recordings_directory: ~/Audio/JamCapture/Recordings
     backingtracks_directory: ~/Audio/JamCapture/BackingTracks
-
-# Channel definitions (reusable)
 definitions:
   channels:
-    - id: guitar
-      name: guitar
-      sources: ["alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FR"]
-      audioMode: mono
+    - id: hw_input_1
+      audiomode: mono
       type: input
       volume: 4.0
       delay: 0
-
-    - id: microphone
-      name: microphone
-      sources: ["alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL"]
-      audioMode: mono
+      sources:
+        - alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL
+    - id: hw_input_2
+      audiomode: mono
       type: input
-      volume: 3.0
+      volume: 4.0
       delay: 0
-
+      sources:
+        - alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FR
     - id: chrome_stereo
-      name: chrome
-      sources: ["Chrome:output_FL", "Chrome:output_FR"]
-      audioMode: stereo
+      audiomode: stereo
       type: monitor
       volume: 0.8
-      delay: 250
-
-# Recording profiles
+      delay: 0
+      sources:
+        - Chrome:output_FL
+        - Chrome:output_FR
 configs:
-  scarlett_studio:
+  default:
     auto_mix: true
     channels:
-      - ref: guitar
-      - ref: microphone
+      - ref: hw_input_1
+      - ref: hw_input_2
       - ref: chrome_stereo
-        volume: 0.6  # Override volume
     output:
       format: flac
-
-  guitar_only:
-    auto_mix: true
-    channels:
-      - ref: guitar
-        volume: 5.0  # Boost for solo recording
-    output:
-      format: wav
-
 supported_audio_extensions: [flac, wav, mp3]
 ```
 
-**Important**: Use the exact port names from `pw-link -io` output in your `sources` fields.
+### Customizing the config
 
-See `examples/pipewire.yaml` for complete configuration examples.
+Edit `~/.config/jamcapture.yaml` to adjust volumes, delays, and add profiles.
+To find available port names:
+
+```bash
+# Install PipeWire utilities if needed (Ubuntu/Debian)
+sudo apt-get install pipewire-utils
+
+jamcapture sources      # list detected sources (recommended)
+pw-link -io             # raw PipeWire port list
+pw-link -io | grep -i scarlett
+```
+
+See `examples/pipewire.yaml` for a multi-profile configuration example.
 
 ## Web Interface Usage
 
@@ -188,7 +179,7 @@ Profiles are automatically loaded and can be switched in the web interface dropd
 - **Recordings**: `~/Audio/JamCapture/Recordings/{song}.mkv` (multi-track)
 - **Mixed output**: `~/Audio/JamCapture/Recordings/{song}.flac` (auto-mixed)
 - **Backing tracks**: `~/Audio/JamCapture/BackingTracks/`
-- **Configuration**: `examples/pipewire.yaml`
+- **Configuration**: `~/.config/jamcapture.yaml` (auto-generated on first run)
 
 ## Requirements
 
@@ -228,12 +219,19 @@ systemctl --user enable pipewire pipewire-pulse
 ## Development
 
 ```bash
-# Run tests
-./tests/e2e-test.sh
-
 # Build
 go build
 
-# Test configuration
+# Unit tests
+go test ./...
+
+# End-to-end test (requires PipeWire + FFmpeg)
+./tests/e2e-test.sh
+
+# Test auto-detection without starting the server
+./jamcapture config init
+./jamcapture config show
+
+# Use a specific config file
 ./jamcapture --config examples/pipewire.yaml sources
 ```

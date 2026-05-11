@@ -3,7 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
+	"github.com/audiolibrelab/jamcapture/internal/audio"
+	"github.com/audiolibrelab/jamcapture/internal/config"
 	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/cobra"
@@ -45,7 +49,83 @@ var configEditCmd = &cobra.Command{
 	},
 }
 
+var configInitCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Auto-detect audio sources and write a starter configuration",
+	Long: `Detect available PipeWire/JACK audio sources and generate a ready-to-use
+configuration file at ~/.config/jamcapture.yaml.
+
+If a configuration file already exists it is backed up with a timestamp suffix
+before the new one is written.
+
+After running this command you can:
+  - List detected sources:  jamcapture sources
+  - Inspect the config:     jamcapture config show
+  - Start the server:       jamcapture serve`,
+	// Override PersistentPreRunE so this command works without a pre-existing config.
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		setupLogging(verboseLevel)
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dest := os.ExpandEnv("$HOME/.config/jamcapture.yaml")
+
+		// Back up existing config
+		if _, err := os.Stat(dest); err == nil {
+			backup := dest + "." + time.Now().Format("20060102T150405") + ".bak"
+			if err := os.Rename(dest, backup); err != nil {
+				return fmt.Errorf("cannot back up existing config to %s: %w", backup, err)
+			}
+			fmt.Printf("Existing config backed up to: %s\n", backup)
+		}
+
+		if err := autoInitConfig(dest); err != nil {
+			return err
+		}
+
+		fmt.Printf("Configuration written to: %s\n\n", dest)
+		fmt.Println("Next steps:")
+		fmt.Println("  jamcapture sources       — verify detected sources")
+		fmt.Println("  jamcapture config show   — inspect resolved config")
+		fmt.Println("  jamcapture serve         — start the web server")
+		return nil
+	},
+}
+
+// autoInitConfig detects audio sources and writes a generated config to configPath.
+// Called by configInitCmd and by runServe on first startup.
+func autoInitConfig(configPath string) error {
+	backend := &audio.PipeWireBackend{}
+	ports, err := backend.ListSources()
+	if err != nil {
+		return fmt.Errorf("failed to list audio sources (is PipeWire running?): %w", err)
+	}
+
+	hwInputs, swSources := audio.CategorizeAndGroup(ports)
+
+	root := config.GenerateDefault(hwInputs, swSources)
+	if root == nil {
+		return fmt.Errorf("no audio sources detected — is PipeWire running and any device connected?")
+	}
+
+	data, err := yaml.Marshal(root)
+	if err != nil {
+		return fmt.Errorf("cannot serialize config: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return fmt.Errorf("cannot create config directory: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		return fmt.Errorf("cannot write config to %s: %w", configPath, err)
+	}
+
+	return nil
+}
+
 func init() {
 	configCmd.AddCommand(configShowCmd)
 	configCmd.AddCommand(configEditCmd)
+	configCmd.AddCommand(configInitCmd)
 }
