@@ -121,10 +121,11 @@ func startServer(configPath string, port int, enableTray bool) error {
 			tray.Shutdown()
 		}()
 
-		// Run system tray (this blocks until quit or shutdown)
+		// Run system tray (this blocks until quit button or external signal)
 		tray.Run()
 
-		// Clean shutdown
+		// Tray exited — shut down web server and wait
+		srv.Shutdown()
 		cancel()
 		wg.Wait()
 

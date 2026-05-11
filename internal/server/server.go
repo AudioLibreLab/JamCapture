@@ -266,6 +266,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/config/update/", s.handleUpdateConfig)
 	mux.HandleFunc("/api/config/delete/", s.handleDeleteConfig)
 	mux.HandleFunc("/api/config/clone/", s.handleCloneConfig)
+	mux.HandleFunc("/api/config/globals", s.handleGlobalSettings)
 	// Audio player endpoints
 	mux.HandleFunc("/api/latest-recording", s.handleLatestRecording)
 	mux.HandleFunc("/api/recording/", s.handleRecordingStream)
@@ -3021,4 +3022,52 @@ func getLocalIP() string {
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	return localAddr.IP.String()
+}
+
+// handleGlobalSettings reads or updates global settings (GET / POST).
+// Currently exposes: audio_player, recordings_directory, backingtracks_directory.
+func (s *Server) handleGlobalSettings(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodGet:
+		root, err := config.ValidateConfigurationFormat(s.configFile)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+			return
+		}
+		player := ""
+		recDir := ""
+		btDir := ""
+		if root.Globals != nil {
+			player = root.Globals.AudioPlayer
+			recDir = root.Globals.Output.RecordingsDirectory
+			btDir = root.Globals.Output.BackingtracksDirectory
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":                  true,
+			"audio_player":             player,
+			"recordings_directory":     recDir,
+			"backingtracks_directory":  btDir,
+		})
+
+	case http.MethodPost:
+		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "failed to parse form"})
+			return
+		}
+		player := r.FormValue("audio_player")
+		if err := config.UpdateGlobalAudioPlayer(s.configFile, player); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "audio_player": player})
+
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "method not allowed"})
+	}
 }

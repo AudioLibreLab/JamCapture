@@ -222,19 +222,8 @@ func (st *SystemTray) handleQuit() {
 		}
 	}
 
-	// Signal the application to shut down gracefully
 	st.cancel()
-
-	// Quit the systray to unblock the main process
 	systray.Quit()
-
-	// Send SIGTERM to ourselves to trigger the signal handler
-	// This ensures proper cleanup of web server and service
-	if pid := os.Getpid(); pid > 0 {
-		if proc, err := os.FindProcess(pid); err == nil {
-			proc.Signal(os.Interrupt) // SIGINT for graceful shutdown
-		}
-	}
 }
 
 // monitorStatus periodically checks and updates the recording status

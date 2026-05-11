@@ -2,11 +2,12 @@ package play
 
 import (
 	"fmt"
-	"github.com/audiolibrelab/jamcapture/internal/config"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/audiolibrelab/jamcapture/internal/config"
 )
 
 type Player struct {
@@ -17,61 +18,87 @@ func New(cfg *config.Config) *Player {
 	return &Player{cfg: cfg}
 }
 
+// nonBlockingPlayers open files in a GUI application and should not be waited on.
+var nonBlockingPlayers = map[string]bool{
+	"audacity": true,
+	"xdg-open": true,
+}
+
 func (p *Player) Play(songName string) error {
 	cleanName := p.cleanFileName(songName)
 	audioFile := filepath.Join(p.cfg.Output.Directory, cleanName+"."+p.cfg.Output.Format)
 
-	// Check if file exists
 	if _, err := os.Stat(audioFile); err != nil {
 		return fmt.Errorf("audio file not found: %s", audioFile)
 	}
 
 	fmt.Printf("Playing: %s\n", audioFile)
 
-	// Try to find available audio player
-	player, err := p.findAudioPlayer()
+	player, err := p.resolvePlayer()
 	if err != nil {
-		return fmt.Errorf("no suitable audio player found: %w", err)
+		return err
 	}
 
-	var cmd *exec.Cmd
-	switch player {
-	case "vlc":
-		cmd = exec.Command("vlc", "--play-and-exit", audioFile)
-	case "mpv":
-		cmd = exec.Command("mpv", "--no-video", audioFile)
-	case "ffplay":
-		cmd = exec.Command("ffplay", "-nodisp", "-autoexit", audioFile)
-	case "aplay":
-		// aplay only works with WAV files, so we need to convert first
-		if p.cfg.Output.Format != "wav" {
-			return fmt.Errorf("aplay requires WAV format, current format is %s", p.cfg.Output.Format)
-		}
-		cmd = exec.Command("aplay", audioFile)
-	default:
+	cmd := p.buildCommand(player, audioFile)
+	if cmd == nil {
 		return fmt.Errorf("unsupported player: %s", player)
 	}
 
-	// Run the player
+	if nonBlockingPlayers[player] {
+		// GUI editors/openers: launch and return immediately
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to open %s with %s: %w", audioFile, player, err)
+		}
+		return nil
+	}
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("playback failed with %s: %w", player, err)
 	}
-
 	fmt.Println("Playback completed")
 	return nil
 }
 
-func (p *Player) findAudioPlayer() (string, error) {
-	// List of preferred audio players in order of preference
-	players := []string{"vlc", "mpv", "ffplay", "aplay"}
+// resolvePlayer returns the configured player if set and available, else falls back to auto-detect.
+func (p *Player) resolvePlayer() (string, error) {
+	if p.cfg.AudioPlayer != "" {
+		if _, err := exec.LookPath(p.cfg.AudioPlayer); err == nil {
+			return p.cfg.AudioPlayer, nil
+		}
+		return "", fmt.Errorf("configured audio player %q not found in PATH", p.cfg.AudioPlayer)
+	}
+	return p.autoDetectPlayer()
+}
 
-	for _, player := range players {
+// autoDetectPlayer probes a fallback list when no player is configured.
+func (p *Player) autoDetectPlayer() (string, error) {
+	candidates := []string{"audacity", "vlc", "mpv", "ffplay", "aplay"}
+	for _, player := range candidates {
 		if _, err := exec.LookPath(player); err == nil {
 			return player, nil
 		}
 	}
+	return "", fmt.Errorf("no audio player found (tried: %s)", strings.Join(candidates, ", "))
+}
 
-	return "", fmt.Errorf("no audio player found (tried: %s)", strings.Join(players, ", "))
+// buildCommand constructs the exec.Cmd for the given player and file.
+func (p *Player) buildCommand(player, audioFile string) *exec.Cmd {
+	switch player {
+	case "audacity":
+		return exec.Command("audacity", audioFile)
+	case "xdg-open":
+		return exec.Command("xdg-open", audioFile)
+	case "vlc":
+		return exec.Command("vlc", "--play-and-exit", audioFile)
+	case "mpv":
+		return exec.Command("mpv", "--no-video", audioFile)
+	case "ffplay":
+		return exec.Command("ffplay", "-nodisp", "-autoexit", audioFile)
+	case "aplay":
+		return exec.Command("aplay", audioFile)
+	default:
+		return nil
+	}
 }
 
 func (p *Player) cleanFileName(name string) string {

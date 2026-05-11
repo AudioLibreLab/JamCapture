@@ -120,6 +120,7 @@ definitions:
           type: monitor
           volume: 0.8
 globals:
+    audio_player: audacity
     output:
         backingtracks_directory: ~/Audio/JamCapture/BackingTracks
         recordings_directory: ~/Audio/JamCapture/Recordings

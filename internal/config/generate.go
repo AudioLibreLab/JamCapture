@@ -2,8 +2,22 @@ package config
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 )
+
+// candidateAudioPlayers lists players to probe in priority order.
+var candidateAudioPlayers = []string{"audacity", "vlc", "rhythmbox", "clementine", "xdg-open"}
+
+// DetectAudioPlayer returns the first audio player found in PATH.
+func DetectAudioPlayer() string {
+	for _, app := range candidateAudioPlayers {
+		if _, err := exec.LookPath(app); err == nil {
+			return app
+		}
+	}
+	return ""
+}
 
 // GenerateDefault creates a RootConfig from auto-detected port groups.
 //
@@ -74,6 +88,7 @@ func GenerateDefault(hwInputs [][]string, swSources [][]string) *RootConfig {
 				RecordingsDirectory:    "~/Audio/JamCapture/Recordings",
 				BackingtracksDirectory: "~/Audio/JamCapture/BackingTracks",
 			},
+			AudioPlayer: DetectAudioPlayer(),
 		},
 		Definitions: &DefinitionsConfig{
 			Channels: defs,

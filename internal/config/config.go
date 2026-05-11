@@ -31,7 +31,8 @@ type ChannelReference struct {
 }
 
 type GlobalsConfig struct {
-	Output GlobalOutputConfig `mapstructure:"output" yaml:"output"`
+	Output      GlobalOutputConfig `mapstructure:"output" yaml:"output"`
+	AudioPlayer string             `mapstructure:"audio_player,omitempty" yaml:"audio_player,omitempty"`
 }
 
 type GlobalOutputConfig struct {
@@ -49,10 +50,11 @@ type RootConfig struct {
 }
 
 type Config struct {
-	Audio    AudioConfig `mapstructure:"audio" yaml:"audio"`
-	Channels []Channel   `mapstructure:"channels" yaml:"channels"`
-	Output   OutputConfig `mapstructure:"output" yaml:"output"`
-	AutoMix  bool         `mapstructure:"auto_mix" yaml:"auto_mix"`
+	Audio       AudioConfig  `mapstructure:"audio" yaml:"audio"`
+	Channels    []Channel    `mapstructure:"channels" yaml:"channels"`
+	Output      OutputConfig `mapstructure:"output" yaml:"output"`
+	AutoMix     bool         `mapstructure:"auto_mix" yaml:"auto_mix"`
+	AudioPlayer string       `mapstructure:"-" yaml:"-"` // populated from globals at load time
 
 	// Internal field to track inheritance information for info command
 	Inheritance *InheritanceInfo `mapstructure:"-" yaml:"-"`
@@ -184,6 +186,10 @@ func LoadWithProfile(configFile, profile string) (*Config, error) {
 	if rootConfig.Globals != nil && rootConfig.Globals.Output.BackingtracksDirectory != "" {
 		selectedConfig.Output.BackingtracksDirectory = rootConfig.Globals.Output.BackingtracksDirectory
 	}
+	// Propagate global audio player setting
+	if rootConfig.Globals != nil {
+		selectedConfig.AudioPlayer = rootConfig.Globals.AudioPlayer
+	}
 
 	// Merge with default config if it exists and we're not already using default
 	if configName != "default" {
@@ -246,6 +252,23 @@ func UpdateActiveConfig(configFile, newActiveConfig string) error {
 		return fmt.Errorf("error writing config file %s: %w", configFile, err)
 	}
 
+	return nil
+}
+
+// UpdateGlobalAudioPlayer writes the globals.audio_player field to the config file.
+func UpdateGlobalAudioPlayer(configFile, player string) error {
+	if configFile == "" {
+		return fmt.Errorf("no config file specified")
+	}
+	v := viper.New()
+	v.SetConfigFile(configFile)
+	if err := v.ReadInConfig(); err != nil {
+		return fmt.Errorf("error reading config file %s: %w", configFile, err)
+	}
+	v.Set("globals.audio_player", player)
+	if err := v.WriteConfig(); err != nil {
+		return fmt.Errorf("error writing config file %s: %w", configFile, err)
+	}
 	return nil
 }
 
