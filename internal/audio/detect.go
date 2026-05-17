@@ -25,10 +25,11 @@ func CategorizeAndGroup(ports []string) (hwInputs [][]string, swSources [][]stri
 	for _, port := range ports {
 		lower := strings.ToLower(port)
 
-		// Skip: hardware playback, JACK system ports, jamcapture's own recorder ports
+		// Skip: hardware playback, JACK system ports, jamcapture's own recorder ports, v4l2 video nodes
 		if strings.Contains(lower, ":playback_") ||
 			strings.HasPrefix(lower, "system:") ||
-			strings.HasPrefix(lower, "jamcapture") {
+			strings.HasPrefix(lower, "jamcapture") ||
+			strings.HasPrefix(lower, "v4l2_") {
 			continue
 		}
 

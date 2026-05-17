@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/audiolibrelab/jamcapture/internal/audio"
@@ -102,11 +104,43 @@ func autoInitConfig(configPath string) error {
 	}
 
 	hwInputs, swSources := audio.CategorizeAndGroup(ports)
+	devices, genericPorts := config.IdentifyDevices(hwInputs)
+	running := config.MatchSoftwareSources(swSources)
 
-	root := config.GenerateDefault(hwInputs, swSources)
+	// Detection summary
+	fmt.Println("Sources détectées :")
+	for _, dev := range devices {
+		n := 0
+		for _, ch := range dev.Template.Channels {
+			if dev.ActualPorts[ch.PortSuffix] {
+				n++
+			}
+		}
+		fmt.Printf("  Matériel : %s (%d canaux)\n", dev.Template.DisplayName, n)
+	}
+	if len(genericPorts) > 0 {
+		fmt.Printf("  Matériel inconnu : %d port(s)\n", len(genericPorts))
+	}
+	for _, sw := range running {
+		fmt.Printf("  Logiciel  : %s (%s)\n", sw.AppName, sw.AudioMode)
+	}
+	if len(devices) == 0 && len(genericPorts) == 0 && len(running) == 0 {
+		return fmt.Errorf("no audio sources detected — is PipeWire running and any device connected?")
+	}
+
+	root := config.GenerateConfig(devices, running, genericPorts)
 	if root == nil {
 		return fmt.Errorf("no audio sources detected — is PipeWire running and any device connected?")
 	}
+
+	// Profile summary
+	names := make([]string, 0, len(root.Configs))
+	for name := range root.Configs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	fmt.Printf("\nProfils générés  : %s\n", strings.Join(names, ", "))
+	fmt.Printf("Config active    : %s\n", root.ActiveConfig)
 
 	data, err := yaml.Marshal(root)
 	if err != nil {

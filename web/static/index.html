@@ -291,6 +291,14 @@
             transform: scale(0.95);
         }
 
+        .keyboard-hint {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.35);
+            margin-top: 6px;
+            text-align: center;
+            user-select: none;
+        }
+
         .recording-info {
             background-color: var(--pico-background-color);
             border: 1px solid var(--pico-border-color);
@@ -1065,6 +1073,7 @@
                 <div class="button-text">REC</div>
                 <div class="button-pulse"></div>
             </button>
+            <p class="keyboard-hint">⌨️ Espace</p>
         </div>
 
         <!-- Configuration Form (hidden during recording) -->
@@ -2920,6 +2929,15 @@
         // Initialize backing tracks controls when page loads
         document.addEventListener('DOMContentLoaded', function() {
             setupBackingtracksControls();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            const tag = document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                toggleRecording();
+            }
         });
     </script>
 </body>

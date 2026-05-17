@@ -3,82 +3,229 @@ package config
 import (
 	"fmt"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
-// candidateAudioPlayers lists players to probe in priority order.
-var candidateAudioPlayers = []string{"audacity", "vlc", "rhythmbox", "clementine", "xdg-open"}
+var trailingDigits = regexp.MustCompile(`(\d+)$`)
 
-// DetectAudioPlayer returns the first audio player found in PATH.
-func DetectAudioPlayer() string {
-	for _, app := range candidateAudioPlayers {
-		if _, err := exec.LookPath(app); err == nil {
-			return app
-		}
+// stereoRightPort returns the right-channel port suffix for a stereo pair.
+// If suffix2 is non-empty it is used directly; otherwise the last digit
+// group in suffix is incremented (e.g. "capture_AUX16" → "capture_AUX17").
+func stereoRightPort(suffix, suffix2 string) string {
+	if suffix2 != "" {
+		return suffix2
 	}
-	return ""
+	return trailingDigits.ReplaceAllStringFunc(suffix, func(s string) string {
+		n, _ := strconv.Atoi(s)
+		return strconv.Itoa(n + 1)
+	})
 }
 
-// GenerateDefault creates a RootConfig from auto-detected port groups.
-//
-// hwInputs: hardware capture ports — each inner slice is one mono channel (1 port).
-// swSources: software output groups — 1 port = mono, 2 ports = stereo pair.
-//
-// Returns nil if no ports are provided.
-func GenerateDefault(hwInputs [][]string, swSources [][]string) *RootConfig {
-	if len(hwInputs) == 0 && len(swSources) == 0 {
+// IdentifyDevices matches hwInputs against KnownDevices.
+// Recognised ports are collected into DetectedDevice structs; the rest go into unmatched.
+func IdentifyDevices(hwInputs [][]string) (devices []DetectedDevice, unmatched [][]string) {
+	consumed := make([]bool, len(hwInputs))
+
+	for di := range KnownDevices {
+		tmpl := &KnownDevices[di]
+		var dev *DetectedDevice
+
+		for i, group := range hwInputs {
+			if consumed[i] {
+				continue
+			}
+			for _, port := range group {
+				if !strings.Contains(port, tmpl.Fingerprint) {
+					continue
+				}
+				if dev == nil {
+					prefix := port[:strings.LastIndex(port, ":")]
+					dev = &DetectedDevice{
+						Template:    tmpl,
+						PortPrefix:  prefix,
+						ActualPorts: make(map[string]bool),
+					}
+				}
+				suffix := port[strings.LastIndex(port, ":")+1:]
+				dev.ActualPorts[suffix] = true
+				consumed[i] = true
+				break
+			}
+		}
+
+		if dev != nil {
+			devices = append(devices, *dev)
+		}
+	}
+
+	for i, group := range hwInputs {
+		if !consumed[i] {
+			unmatched = append(unmatched, group)
+		}
+	}
+	return devices, unmatched
+}
+
+// MatchSoftwareSources returns the WellKnownSoftwareSources entries whose
+// ports are currently present in swSources (i.e. the app is running).
+func MatchSoftwareSources(swSources [][]string) []SoftwareSourceTemplate {
+	portSet := make(map[string]bool)
+	for _, group := range swSources {
+		for _, port := range group {
+			portSet[port] = true
+		}
+	}
+
+	var running []SoftwareSourceTemplate
+	for _, sw := range WellKnownSoftwareSources {
+		if portSet[sw.PortFL] {
+			running = append(running, sw)
+		}
+	}
+	return running
+}
+
+// GenerateConfig builds a RootConfig from identified hardware devices,
+// running software sources, and any unmatched (generic) hardware ports.
+// Returns nil if no sources are provided.
+func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, genericPorts [][]string) *RootConfig {
+	if len(devices) == 0 && len(running) == 0 && len(genericPorts) == 0 {
 		return nil
 	}
 
 	var defs []ChannelDefinition
-	var refs []ChannelReference
+	profiles := make(map[string]*ConfigProfile)
 
-	// Hardware inputs — one mono channel per capture port
-	for i, ports := range hwInputs {
+	// Known hardware devices
+	for _, dev := range devices {
+		var deviceRefs []ChannelReference
+
+		for _, ch := range dev.Template.Channels {
+			if !dev.ActualPorts[ch.PortSuffix] {
+				continue
+			}
+			leftPort := dev.PortPrefix + ":" + ch.PortSuffix
+
+			def := ChannelDefinition{
+				ID:        ch.ID,
+				Name:      ch.Name,
+				AudioMode: ch.AudioMode,
+				Type:      ch.Type,
+				Volume:    ch.Volume,
+			}
+
+			if ch.AudioMode == "stereo" {
+				rightSuffix := stereoRightPort(ch.PortSuffix, ch.PortSuffix2)
+				if !dev.ActualPorts[rightSuffix] {
+					continue // incomplete stereo pair
+				}
+				def.Sources = []string{leftPort, dev.PortPrefix + ":" + rightSuffix}
+			} else {
+				def.Sources = []string{leftPort}
+			}
+
+			defs = append(defs, def)
+			deviceRefs = append(deviceRefs, ChannelReference{Ref: ch.ID})
+		}
+
+		if len(deviceRefs) > 0 {
+			profiles[dev.Template.ProfilePrefix+"_studio"] = &ConfigProfile{
+				AutoMix:  true,
+				Channels: deviceRefs,
+				Output:   OutputConfig{Format: "flac"},
+			}
+		}
+	}
+
+	// Running software sources
+	var swRefs []ChannelReference
+	for _, sw := range running {
+		sources := []string{sw.PortFL}
+		if sw.AudioMode == "stereo" && sw.PortFR != "" {
+			sources = []string{sw.PortFL, sw.PortFR}
+		}
+		defs = append(defs, ChannelDefinition{
+			ID:        sw.ID,
+			Name:      sw.Name,
+			Sources:   sources,
+			AudioMode: sw.AudioMode,
+			Type:      sw.Type,
+			Volume:    sw.Volume,
+			Delay:     sw.Delay,
+		})
+		swRefs = append(swRefs, ChannelReference{Ref: sw.ID})
+	}
+
+	// Generic fallback for unrecognised hardware
+	for i, group := range genericPorts {
 		id := fmt.Sprintf("hw_input_%d", i+1)
 		defs = append(defs, ChannelDefinition{
 			ID:        id,
-			Sources:   ports,
+			Sources:   group,
 			AudioMode: "mono",
 			Type:      "input",
 			Volume:    4.0,
-			Delay:     0,
 		})
-		refs = append(refs, ChannelReference{Ref: id})
 	}
 
-	// Software sources — stereo pairs or mono
-	seenNames := make(map[string]int)
-	for _, ports := range swSources {
-		baseName := portAppName(ports[0])
-		count := seenNames[baseName]
-		seenNames[baseName]++
-
-		audioMode := "mono"
-		suffix := "_mono"
-		if len(ports) == 2 {
-			audioMode = "stereo"
-			suffix = "_stereo"
+	// _with_monitor profiles (hardware + active software sources)
+	if len(swRefs) > 0 {
+		for _, dev := range devices {
+			prefix := dev.Template.ProfilePrefix
+			studio, ok := profiles[prefix+"_studio"]
+			if !ok {
+				continue
+			}
+			refs := append(append([]ChannelReference{}, studio.Channels...), swRefs...)
+			profiles[prefix+"_with_monitor"] = &ConfigProfile{
+				AutoMix:  true,
+				Channels: refs,
+				Output:   OutputConfig{Format: "flac"},
+			}
 		}
-
-		id := baseName + suffix
-		if count > 0 {
-			id = fmt.Sprintf("%s%s_%d", baseName, suffix, count+1)
-		}
-
-		defs = append(defs, ChannelDefinition{
-			ID:        id,
-			Sources:   ports,
-			AudioMode: audioMode,
-			Type:      "monitor",
-			Volume:    0.8,
-			Delay:     0,
-		})
-		refs = append(refs, ChannelReference{Ref: id})
 	}
+
+	// all_devices profile when multiple hardware devices are present
+	if len(devices) > 1 {
+		var allRefs []ChannelReference
+		for _, dev := range devices {
+			if p, ok := profiles[dev.Template.ProfilePrefix+"_studio"]; ok {
+				allRefs = append(allRefs, p.Channels...)
+			}
+		}
+		if len(allRefs) > 0 {
+			profiles["all_devices"] = &ConfigProfile{
+				AutoMix:  true,
+				Channels: allRefs,
+				Output:   OutputConfig{Format: "flac"},
+			}
+		}
+	}
+
+	// Default fallback when no known device matched
+	if len(devices) == 0 {
+		var refs []ChannelReference
+		for i := range genericPorts {
+			refs = append(refs, ChannelReference{Ref: fmt.Sprintf("hw_input_%d", i+1)})
+		}
+		for _, sw := range running {
+			refs = append(refs, ChannelReference{Ref: sw.ID})
+		}
+		if len(refs) > 0 {
+			profiles["default"] = &ConfigProfile{
+				AutoMix:  true,
+				Channels: refs,
+				Output:   OutputConfig{Format: "flac"},
+			}
+		}
+	}
+
+	activeConfig := selectActiveConfig(devices, running)
 
 	return &RootConfig{
-		ActiveConfig: "default",
+		ActiveConfig: activeConfig,
 		Audio: &AudioConfig{
 			Backend:    "pipewire",
 			SampleRate: 48000,
@@ -88,28 +235,29 @@ func GenerateDefault(hwInputs [][]string, swSources [][]string) *RootConfig {
 				RecordingsDirectory:    "~/Audio/JamCapture/Recordings",
 				BackingtracksDirectory: "~/Audio/JamCapture/BackingTracks",
 			},
-			AudioPlayer: DetectAudioPlayer(),
+			AudioPlayer: detectAudioPlayer(),
 		},
-		Definitions: &DefinitionsConfig{
-			Channels: defs,
-		},
-		Configs: map[string]*ConfigProfile{
-			"default": {
-				AutoMix:  true,
-				Channels: refs,
-				Output:   OutputConfig{Format: "flac"},
-			},
-		},
+		Definitions:              &DefinitionsConfig{Channels: defs},
+		Configs:                  profiles,
 		SupportedAudioExtensions: []string{"flac", "wav", "mp3"},
 	}
 }
 
-// portAppName extracts a sanitized lowercase identifier from a JACK port string.
-// "Chrome:output_FL" → "chrome", "Google Chrome:output_FL" → "google_chrome"
-func portAppName(port string) string {
-	idx := strings.Index(port, ":")
-	if idx < 0 {
-		return strings.ToLower(strings.ReplaceAll(port, " ", "_"))
+func selectActiveConfig(devices []DetectedDevice, running []SoftwareSourceTemplate) string {
+	if len(devices) > 0 {
+		if len(running) > 0 {
+			return devices[0].Template.ProfilePrefix + "_with_monitor"
+		}
+		return devices[0].Template.ProfilePrefix + "_studio"
 	}
-	return strings.ReplaceAll(strings.ToLower(port[:idx]), " ", "_")
+	return "default"
+}
+
+func detectAudioPlayer() string {
+	for _, app := range []string{"audacity", "vlc", "rhythmbox", "xdg-open"} {
+		if _, err := exec.LookPath(app); err == nil {
+			return app
+		}
+	}
+	return ""
 }

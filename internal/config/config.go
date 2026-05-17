@@ -16,6 +16,7 @@ type DefinitionsConfig struct {
 
 type ChannelDefinition struct {
 	ID        string   `mapstructure:"id" yaml:"id"`
+	Name      string   `mapstructure:"name,omitempty" yaml:"name,omitempty"`
 	Sources   []string `mapstructure:"sources" yaml:"sources"`
 	AudioMode string   `mapstructure:"audioMode" yaml:"audioMode"`
 	Type      string   `mapstructure:"type" yaml:"type"`
@@ -313,9 +314,11 @@ func convertProfileToConfig(profile *ConfigProfile, definitions *DefinitionsConf
 			return nil, fmt.Errorf("channel[%d]: reference '%s' not found in definitions", i, chRef.Ref)
 		}
 
-		// Create channel from definition
-		// Use reference name if provided, otherwise fallback to definition ID
+		// Use reference name if provided, then definition name, then definition ID
 		channelName := chRef.Name
+		if channelName == "" {
+			channelName = definition.Name
+		}
 		if channelName == "" {
 			channelName = definition.ID
 		}
@@ -1064,8 +1067,11 @@ func validateChannelReferences(channels []ChannelReference, definitions *Definit
 			return fmt.Errorf("%s: references undefined channel definition '%s'", prefix, chRef.Ref)
 		}
 
-		// Determine the effective channel name
+		// Use reference name if provided, then definition name, then definition ID
 		channelName := chRef.Name
+		if channelName == "" {
+			channelName = definition.Name
+		}
 		if channelName == "" {
 			channelName = definition.ID
 		}
