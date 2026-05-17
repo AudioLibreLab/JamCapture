@@ -28,7 +28,6 @@ type Server struct {
 	cfg           *config.Config
 	configFile    string
 	port          string
-	lastSongName  string
 	activeProfile string
 
 	// Profile locking mechanism
@@ -54,6 +53,7 @@ type StatusResponse struct {
 	Session       *service.RecordingSession `json:"session,omitempty"`
 	Config        *ResolvedConfigInfo       `json:"resolved_config"`
 	ActiveProfile string                    `json:"active_profile"`
+	SuggestedSong string                    `json:"suggested_song"`
 }
 
 // ResolvedConfigInfo contains configuration information for the UI
@@ -420,24 +420,16 @@ func (s *Server) handleStartReady(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto mix will be read from configuration, but we can still accept override from web UI
-	// For backward compatibility, we could allow temporary override here
-	// But for now, we'll use the configuration value
-	s.lastSongName = songName
-
 	// Reload config if profile is specified and different
 	if profile != "" {
-		newCfg, err := config.LoadWithProfile(s.configFile, profile)
-		if err != nil {
+		if err := s.service.LoadProfile(profile); err != nil {
 			s.sendErrorResponse(w, http.StatusBadRequest,
 				fmt.Sprintf("Failed to load profile '%s': %v", profile, err),
 				"profile", profile, "operation", "profile_load_for_ready")
 			return
 		}
-		s.cfg = newCfg
+		s.cfg = s.service.GetConfig()
 		s.activeProfile = profile
-		// Create new service with updated config
-		s.service = service.New(s.cfg, s.configFile, nil)
 	}
 
 	// Transition to READY state
@@ -503,6 +495,9 @@ func (s *Server) handleStopRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture song name before stopping (StopRecording clears it)
+	songToMix := s.service.CurrentSongName()
+
 	// Stop recording
 	if err := s.service.StopRecording(); err != nil {
 		s.sendErrorResponse(w, http.StatusInternalServerError,
@@ -515,9 +510,9 @@ func (s *Server) handleStopRecording(w http.ResponseWriter, r *http.Request) {
 	var mixError string
 
 	// Auto-mix if enabled in configuration
-	if s.cfg.AutoMix && s.lastSongName != "" {
-		slog.Info("Starting automatic mixing", "song", s.lastSongName)
-		if err := s.service.Mix(s.lastSongName); err != nil {
+	if s.cfg.AutoMix && songToMix != "" {
+		slog.Info("Starting automatic mixing", "song", songToMix)
+		if err := s.service.Mix(songToMix); err != nil {
 			mixError = fmt.Sprintf("Mixing failed: %v", err)
 			slog.Error("Mixing failed", "error", err)
 		} else {
@@ -582,6 +577,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Session:       session,
 		Config:        resolvedConfig,
 		ActiveProfile: s.activeProfile,
+		SuggestedSong: s.service.CurrentSongName(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -855,9 +851,6 @@ func (s *Server) handleSelectProfile(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-
-	// Create new service with updated config
-	s.service = service.New(s.cfg, s.configFile, nil)
 
 	slog.Info("Profile changed", "profile", s.activeProfile)
 

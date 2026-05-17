@@ -79,4 +79,13 @@ var KnownDevices = []DeviceTemplate{
 			{ID: "4i4_input4", Name: "input4", PortSuffix: "capture_RR", AudioMode: "mono", Type: "input", Volume: 4.0},
 		},
 	},
+	{
+		Fingerprint:   "HOTONE_AUDIO_Ampero",
+		ProfilePrefix: "ampero",
+		DisplayName:   "Hotone Ampero",
+		Channels: []ChannelTemplate{
+			// Stereo guitar processor — L+R as a single stereo channel
+			{ID: "ampero", Name: "ampero", PortSuffix: "capture_FL", PortSuffix2: "capture_FR", AudioMode: "stereo", Type: "input", Volume: 4.0},
+		},
+	},
 }

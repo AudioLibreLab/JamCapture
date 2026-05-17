@@ -21,6 +21,11 @@ import (
 )
 
 
+// GenerateDefaultSongName returns a unique song name based on the current time.
+func GenerateDefaultSongName() string {
+	return "MySong_" + time.Now().Format("20060102_150405")
+}
+
 // Service represents the core JamCapture service interface
 type Service interface {
 	// Recording operations
@@ -28,6 +33,7 @@ type Service interface {
 	CancelReady() error
 	StopRecording() error
 	GetRecordingStatus() (RecordingStatus, *RecordingSession)
+	CurrentSongName() string
 
 	// Mixing operations
 	Mix(songName string) error
@@ -158,6 +164,10 @@ type JamCaptureService struct {
 	// Error tracking
 	lastError      string
 	lastErrorMutex sync.RWMutex
+
+	// Current song name shared between server and systray
+	songMu      sync.RWMutex
+	currentSong string
 }
 
 // New creates a new JamCapture service instance
@@ -172,6 +182,17 @@ func New(cfg *config.Config, configFile string, logWriter io.Writer) Service {
 		recorder:   audio.NewRecorder(cfg, logWriter),
 		logWriter:  logWriter,
 	}
+}
+
+// CurrentSongName returns the active song name, or a freshly generated default if none is set.
+func (s *JamCaptureService) CurrentSongName() string {
+	s.songMu.RLock()
+	name := s.currentSong
+	s.songMu.RUnlock()
+	if name != "" {
+		return name
+	}
+	return GenerateDefaultSongName()
 }
 
 // StartReady prepares for recording (STANDBY -> READY)
@@ -192,6 +213,9 @@ func (s *JamCaptureService) StartReady(songName string) error {
 		slog.Error("Service.StartReady failed", "error", err)
 		s.setLastError(fmt.Sprintf("Failed to start recording: %v", err))
 	} else {
+		s.songMu.Lock()
+		s.currentSong = songName
+		s.songMu.Unlock()
 		slog.Debug("Service.StartReady completed successfully")
 	}
 	return err
@@ -208,7 +232,10 @@ func (s *JamCaptureService) StopRecording() error {
 	if err != nil {
 		s.setLastError(fmt.Sprintf("Failed to stop recording: %v", err))
 	} else {
-		s.clearLastError() // Clear error on successful stop
+		s.clearLastError()
+		s.songMu.Lock()
+		s.currentSong = ""
+		s.songMu.Unlock()
 	}
 	return err
 }

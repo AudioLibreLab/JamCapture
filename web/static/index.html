@@ -1343,6 +1343,8 @@
         }
 
         // Update status and UI state
+        let lastSuggestedSong = '';
+
         function updateStatus() {
             fetch('/status')
                 .then(response => response.json())
@@ -1352,6 +1354,15 @@
 
                     // Update configuration info
                     updateConfigInfo(data.resolved_config);
+
+                    // Pre-fill song name when in STANDBY and field is empty or unchanged from last suggestion
+                    if (data.status === 'STANDBY' && data.suggested_song) {
+                        const songInput = document.getElementById('song');
+                        if (songInput && (songInput.value === '' || songInput.value === lastSuggestedSong)) {
+                            songInput.value = data.suggested_song;
+                            lastSuggestedSong = data.suggested_song;
+                        }
+                    }
 
                     // Update UI state based on status
                     toggleUIState(data.status);

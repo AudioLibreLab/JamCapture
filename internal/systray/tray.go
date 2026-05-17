@@ -16,10 +16,9 @@ import (
 )
 
 type SystemTray struct {
-	service     service.Service
-	webPort     int
-	currentSong string
-	quit        chan struct{}
+	service service.Service
+	webPort int
+	quit    chan struct{}
 
 	// Menu items
 	menuRecord   *systray.MenuItem
@@ -121,11 +120,9 @@ func (st *SystemTray) handleMenuEvents() {
 	}
 }
 
-// handleRecord starts recording with user input for song name
+// handleRecord starts recording with a generated default song name
 func (st *SystemTray) handleRecord() {
-	// Use a user-friendly default song name
-	songName := "My_song_" + time.Now().Format("20060102")
-
+	songName := service.GenerateDefaultSongName()
 	slog.Info("Starting recording", "song_name", songName)
 
 	if err := st.service.StartReady(songName); err != nil {
@@ -134,13 +131,14 @@ func (st *SystemTray) handleRecord() {
 		return
 	}
 
-	st.currentSong = songName
 	st.showNotification("Recording Started", fmt.Sprintf("Recording '%s' has started", songName))
 }
 
 // handleStop stops the current recording
 func (st *SystemTray) handleStop() {
-	slog.Info("Stopping recording", "song_name", st.currentSong)
+	// Capture song name before stopping (service clears it on stop)
+	songName := st.service.CurrentSongName()
+	slog.Info("Stopping recording", "song_name", songName)
 
 	if err := st.service.StopRecording(); err != nil {
 		slog.Error("Failed to stop recording", "error", err)
@@ -148,19 +146,17 @@ func (st *SystemTray) handleStop() {
 		return
 	}
 
-	st.showNotification("Recording Stopped", fmt.Sprintf("Recording '%s' has been stopped", st.currentSong))
+	st.showNotification("Recording Stopped", fmt.Sprintf("Recording '%s' has been stopped", songName))
 
 	// Auto-mix the recording to create FLAC file
-	slog.Info("Auto-mixing recording", "song_name", st.currentSong)
-	if err := st.service.Mix(st.currentSong); err != nil {
+	slog.Info("Auto-mixing recording", "song_name", songName)
+	if err := st.service.Mix(songName); err != nil {
 		slog.Error("Failed to auto-mix recording", "error", err)
 		st.showNotification("Mix Failed", fmt.Sprintf("Recording stopped but auto-mix failed: %v", err))
 	} else {
-		slog.Info("Auto-mix completed", "song_name", st.currentSong)
-		st.showNotification("Mix Complete", fmt.Sprintf("'%s' has been mixed and is ready", st.currentSong))
+		slog.Info("Auto-mix completed", "song_name", songName)
+		st.showNotification("Mix Complete", fmt.Sprintf("'%s' has been mixed and is ready", songName))
 	}
-
-	st.currentSong = ""
 }
 
 // handleWebUI opens the web interface in the default browser
@@ -215,8 +211,10 @@ func (st *SystemTray) handleQuit() {
 	slog.Info("User requested shutdown via systray")
 
 	// Stop any active recording first
-	if st.currentSong != "" {
-		slog.Info("Stopping active recording before shutdown", "song_name", st.currentSong)
+	status, _ := st.service.GetRecordingStatus()
+	if status == service.StatusRecording || status == service.StatusReady {
+		songName := st.service.CurrentSongName()
+		slog.Info("Stopping active recording before shutdown", "song_name", songName)
 		if err := st.service.StopRecording(); err != nil {
 			slog.Error("Failed to stop recording during shutdown", "error", err)
 		}
@@ -257,19 +255,12 @@ func (st *SystemTray) updateStatus() {
 
 	// Show/hide menu items based on status
 	switch status {
-	case service.StatusRecording:
-		st.menuRecord.Hide()
-		st.menuStop.Show()
-		if st.currentSong == "" && session != nil {
-			st.currentSong = session.SongName
-		}
-	case service.StatusReady:
+	case service.StatusRecording, service.StatusReady:
 		st.menuRecord.Hide()
 		st.menuStop.Show()
 	default: // STANDBY, ERROR
 		st.menuRecord.Show()
 		st.menuStop.Hide()
-		st.currentSong = ""
 	}
 }
 
@@ -297,7 +288,7 @@ func (st *SystemTray) updateIcon(status string) {
 	var tooltip string
 	switch status {
 	case "RECORDING":
-		tooltip = fmt.Sprintf("JamCapture - Recording: %s", st.currentSong)
+		tooltip = fmt.Sprintf("JamCapture - Recording: %s", st.service.CurrentSongName())
 	case "READY":
 		tooltip = "JamCapture - Ready to record"
 	case "ERROR":
