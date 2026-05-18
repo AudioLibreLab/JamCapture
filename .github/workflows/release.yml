@@ -26,19 +26,19 @@ jobs:
     - name: Build binaries
       run: |
         # Linux amd64
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o jamcapture-linux-amd64
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags nosystray -ldflags="-w -s" -o jamcapture-linux-amd64
 
         # Linux arm64
-        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-w -s" -o jamcapture-linux-arm64
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags nosystray -ldflags="-w -s" -o jamcapture-linux-arm64
 
         # macOS amd64
-        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s" -o jamcapture-darwin-amd64
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -tags nosystray -ldflags="-w -s" -o jamcapture-darwin-amd64
 
         # macOS arm64 (Apple Silicon)
-        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s" -o jamcapture-darwin-arm64
+        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -tags nosystray -ldflags="-w -s" -o jamcapture-darwin-arm64
 
         # Windows amd64
-        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o jamcapture-windows-amd64.exe
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags nosystray -ldflags="-w -s" -o jamcapture-windows-amd64.exe
 
     - name: Create checksums
       run: |

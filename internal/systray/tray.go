@@ -1,3 +1,5 @@
+//go:build !nosystray
+
 package systray
 
 import (

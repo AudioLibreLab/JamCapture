@@ -1,3 +1,5 @@
+//go:build !nosystray
+
 package systray
 
 // JamCapture large icon (24x24 with bold J text)
