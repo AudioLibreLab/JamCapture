@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/audiolibrelab/jamcapture/internal/config"
@@ -34,6 +35,7 @@ type PipeWireRecorder struct {
 	ffmpegCmd *exec.Cmd
 	stdoutBuf strings.Builder
 	stderrBuf strings.Builder
+	xrunCount int32 // accessed atomically
 
 	// Source monitoring
 	sourceMonitorStop chan struct{}
@@ -353,9 +355,14 @@ func (r *PipeWireRecorder) Cleanup() error {
 // buildAndStartFFmpeg constructs and starts the FFmpeg command for PipeWire recording
 func (r *PipeWireRecorder) buildAndStartFFmpeg(channels []config.Channel, outputFile string) error {
 	// Set PipeWire environment variables
+	bufferSize := r.cfg.Audio.BufferSize
+	if bufferSize == 0 {
+		bufferSize = 256
+	}
+	quantum := fmt.Sprintf("%d/%d", bufferSize, r.cfg.Audio.SampleRate)
 	env := os.Environ()
-	env = append(env, "PIPEWIRE_QUANTUM=256/48000")
-	env = append(env, "PIPEWIRE_LATENCY=256/48000")
+	env = append(env, "PIPEWIRE_QUANTUM="+quantum)
+	env = append(env, "PIPEWIRE_LATENCY="+quantum)
 
 	// Build FFmpeg command - create individual JACK clients per channel like main branch
 	args := []string{
@@ -434,7 +441,12 @@ func (r *PipeWireRecorder) readOutput(pipe io.ReadCloser, buffer *strings.Builde
 	for scanner.Scan() {
 		line := scanner.Text()
 		buffer.WriteString(line + "\n")
-		slog.Debug("FFmpeg output", "stream", label, "line", line)
+		if strings.Contains(strings.ToLower(line), "xrun") {
+			count := atomic.AddInt32(&r.xrunCount, 1)
+			slog.Error("Audio xrun detected", "count", count, "detail", line)
+		} else {
+			slog.Debug("FFmpeg output", "stream", label, "line", line)
+		}
 	}
 	pipe.Close()
 }

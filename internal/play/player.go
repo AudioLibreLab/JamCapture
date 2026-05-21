@@ -22,6 +22,7 @@ func New(cfg *config.Config) *Player {
 var nonBlockingPlayers = map[string]bool{
 	"audacity": true,
 	"xdg-open": true,
+	"vlc":      true,
 }
 
 func (p *Player) Play(songName string) error {
@@ -89,7 +90,7 @@ func (p *Player) buildCommand(player, audioFile string) *exec.Cmd {
 	case "xdg-open":
 		return exec.Command("xdg-open", audioFile)
 	case "vlc":
-		return exec.Command("vlc", "--play-and-exit", audioFile)
+		return exec.Command("vlc", audioFile)
 	case "mpv":
 		return exec.Command("mpv", "--no-video", audioFile)
 	case "ffplay":

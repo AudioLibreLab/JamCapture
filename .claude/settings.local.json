@@ -133,7 +133,12 @@
       "Bash(convert -size 16x16 xc:'#2196F3' -gravity center -pointsize 10 -fill white -annotate +0+0 \"J\" jamcapture_minimal.png)",
       "Bash(JAMCAPTURE_SONG=\"minimal-icon-test\" timeout 3s ./jamcapture --config tests/jamcapture-e2e.yaml serve --port 8081 -v 1)",
       "Bash(convert -size 24x24 xc:'#2196F3' -gravity center -pointsize 16 -fill white -font \"Arial-Bold\" -annotate +0+0 \"J\" jamcapture_large.png)",
-      "Bash(JAMCAPTURE_SONG=\"improved-icon-test\" timeout 3s ./jamcapture --config tests/jamcapture-e2e.yaml serve --port 8082 -v 1)"
+      "Bash(JAMCAPTURE_SONG=\"improved-icon-test\" timeout 3s ./jamcapture --config tests/jamcapture-e2e.yaml serve --port 8082 -v 1)",
+      "Bash(gh release *)",
+      "Bash(git tag *)",
+      "Bash(gh run *)",
+      "Bash(xargs ls -la)",
+      "Bash(docker run *)"
     ],
     "deny": [],
     "ask": []

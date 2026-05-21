@@ -74,6 +74,7 @@ type ConfigProfile struct {
 type InheritanceInfo struct {
 	Audio struct {
 		SampleRate string // "inherited" or "profile-specific"
+		BufferSize string // "inherited" or "profile-specific"
 		Interface  string
 		Backend    string // "inherited" or "profile-specific"
 	}
@@ -91,8 +92,9 @@ type InheritanceInfo struct {
 
 type AudioConfig struct {
 	SampleRate int    `mapstructure:"sample_rate" yaml:"sample_rate"`
-	Interface  string `mapstructure:"interface" yaml:"interface"` // "jack" interface (deprecated, use Backend)
-	Backend    string `mapstructure:"backend" yaml:"backend"`     // "pipewire", "auto"
+	BufferSize int    `mapstructure:"buffer_size" yaml:"buffer_size"` // PipeWire quantum in samples (64/128/256)
+	Interface  string `mapstructure:"interface" yaml:"interface"`      // "jack" interface (deprecated, use Backend)
+	Backend    string `mapstructure:"backend" yaml:"backend"`          // "pipewire", "auto"
 }
 
 type Channel struct {
@@ -172,6 +174,9 @@ func LoadWithProfile(configFile, profile string) (*Config, error) {
 		}
 		if selectedConfig.Audio.SampleRate == 0 {
 			selectedConfig.Audio.SampleRate = rootConfig.Audio.SampleRate
+		}
+		if selectedConfig.Audio.BufferSize == 0 {
+			selectedConfig.Audio.BufferSize = rootConfig.Audio.BufferSize
 		}
 		if selectedConfig.Audio.Interface == "" {
 			selectedConfig.Audio.Interface = rootConfig.Audio.Interface
@@ -410,6 +415,10 @@ func mergeConfigs(base, profile *Config) *Config {
 	if profile.Audio.SampleRate != 0 {
 		result.Audio.SampleRate = profile.Audio.SampleRate
 		result.Inheritance.Audio.SampleRate = "profile-specific"
+	}
+	if profile.Audio.BufferSize != 0 {
+		result.Audio.BufferSize = profile.Audio.BufferSize
+		result.Inheritance.Audio.BufferSize = "profile-specific"
 	}
 	if profile.Audio.Interface != "" {
 		result.Audio.Interface = profile.Audio.Interface
