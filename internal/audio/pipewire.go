@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -170,6 +171,66 @@ func (pw *PipeWire) isEphemeralPort(portName string) bool {
 		}
 	}
 	return false
+}
+
+// isPortNodeRunning returns true only when the node hosting the port is actively processing audio.
+// Fail-open: returns true if pw-dump is unavailable, preserving old connect-always behaviour.
+func (pw *PipeWire) isPortNodeRunning(portAlias string) bool {
+	cmd := exec.Command("pw-dump")
+	output, err := cmd.Output()
+	if err != nil {
+		slog.Debug("pw-dump failed, assuming port is live", "port", portAlias, "error", err)
+		return true
+	}
+
+	var objects []map[string]interface{}
+	if err := json.Unmarshal(output, &objects); err != nil {
+		slog.Debug("pw-dump parse failed, assuming port is live", "error", err)
+		return true
+	}
+
+	// Pass 1: find port by alias → get node.id
+	nodeID := -1
+	for _, obj := range objects {
+		if obj["type"] != "PipeWire:Interface:Port" {
+			continue
+		}
+		info, _ := obj["info"].(map[string]interface{})
+		props, _ := info["props"].(map[string]interface{})
+		if props["port.alias"] == portAlias {
+			if nid, ok := props["node.id"].(float64); ok {
+				nodeID = int(nid)
+			}
+			break
+		}
+	}
+	if nodeID < 0 {
+		return false
+	}
+
+	// Pass 2: find node → check state
+	for _, obj := range objects {
+		if id, ok := obj["id"].(float64); ok && int(id) == nodeID {
+			info, _ := obj["info"].(map[string]interface{})
+			return info["state"] == "running"
+		}
+	}
+	return false
+}
+
+// ensureConnected idempotently connects two JACK ports (treats EEXIST as success).
+func (pw *PipeWire) ensureConnected(sourcePort, destPort string) error {
+	cmd := exec.Command("pw-link", sourcePort, destPort)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		slog.Info("Connection monitor: reconnected port", "source", sourcePort, "dest", destPort)
+		return nil
+	}
+	out := string(output)
+	if strings.Contains(out, "File exists") || strings.Contains(out, "already") {
+		return nil
+	}
+	return fmt.Errorf("failed to connect ports: %w (output: %s)", err, out)
 }
 
 // DisconnectPorts disconnects two JACK ports

@@ -174,6 +174,10 @@ func (r *PipeWireRecorder) recordingWorker(enabledChannels []config.Channel) {
 			if len(channel.Sources) > 0 {
 				source := channel.Sources[0]
 				if source != "" && source != "disabled" {
+					if !r.pipewire.isPortNodeRunning(source) {
+						slog.Info("Skipping idle source port, monitor will reconnect when active", "source", source)
+						continue
+					}
 					if err := r.pipewire.ConnectPortsWithRetry(source, destPort); err != nil {
 						slog.Error("Failed to connect mono source", "channel", channel.Name, "source", source, "dest", destPort, "error", err)
 					} else {
@@ -199,6 +203,10 @@ func (r *PipeWireRecorder) recordingWorker(enabledChannels []config.Channel) {
 					continue
 				}
 
+				if !r.pipewire.isPortNodeRunning(source) {
+					slog.Info("Skipping idle source port, monitor will reconnect when active", "source", source)
+					continue
+				}
 				if err := r.pipewire.ConnectPortsWithRetry(source, destPort); err != nil {
 					slog.Error("Failed to connect stereo source", "channel", channel.Name, "source", source, "dest", destPort, "error", err)
 				} else {
@@ -207,6 +215,9 @@ func (r *PipeWireRecorder) recordingWorker(enabledChannels []config.Channel) {
 			}
 		}
 	}
+
+	connections := r.buildConnectionMap(enabledChannels)
+	go r.connectionMonitor(connections)
 
 	// Wait for recording to be stopped
 	<-r.stopChan
@@ -700,6 +711,52 @@ func (r *PipeWireRecorder) hasDuplicateSources() bool {
 		}
 	}
 	return false
+}
+
+// buildConnectionMap mirrors the source→dest naming logic in recordingWorker.
+func (r *PipeWireRecorder) buildConnectionMap(channels []config.Channel) map[string]string {
+	connections := make(map[string]string)
+	for _, channel := range channels {
+		if len(channel.Sources) <= 1 {
+			if len(channel.Sources) > 0 {
+				src := channel.Sources[0]
+				if src != "" && src != "disabled" {
+					connections[src] = fmt.Sprintf("jamcapture_%s:input_1", channel.Name)
+				}
+			}
+		} else {
+			for i, src := range channel.Sources {
+				if i >= 2 {
+					break
+				}
+				if src == "" || src == "disabled" {
+					continue
+				}
+				connections[src] = fmt.Sprintf("jamcapture_%s:input_%d", channel.Name, i+1)
+			}
+		}
+	}
+	return connections
+}
+
+// connectionMonitor periodically reconnects sources whose node is running but not yet linked.
+func (r *PipeWireRecorder) connectionMonitor(connections map[string]string) {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-r.stopChan:
+			return
+		case <-ticker.C:
+			for source, dest := range connections {
+				if r.pipewire.portExists(source) && r.pipewire.isPortNodeRunning(source) {
+					if err := r.pipewire.ensureConnected(source, dest); err != nil {
+						slog.Debug("Connection monitor: reconnect failed", "source", source, "dest", dest, "error", err)
+					}
+				}
+			}
+		}
+	}
 }
 
 // waitForSpecificPort waits for a specific JACK port to appear
