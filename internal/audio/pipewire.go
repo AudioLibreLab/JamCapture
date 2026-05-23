@@ -173,19 +173,29 @@ func (pw *PipeWire) isEphemeralPort(portName string) bool {
 	return false
 }
 
-// isPortNodeRunning returns true only when the node hosting the port is actively processing audio.
-// Fail-open: returns true if pw-dump is unavailable, preserving old connect-always behaviour.
-func (pw *PipeWire) isPortNodeRunning(portAlias string) bool {
+// parsePwDump runs pw-dump and returns the parsed JSON objects.
+// Returns (nil, false) on error — callers should fail-open.
+func parsePwDump() ([]map[string]interface{}, bool) {
 	cmd := exec.Command("pw-dump")
 	output, err := cmd.Output()
 	if err != nil {
-		slog.Debug("pw-dump failed, assuming port is live", "port", portAlias, "error", err)
-		return true
+		slog.Debug("pw-dump failed", "error", err)
+		return nil, false
 	}
-
 	var objects []map[string]interface{}
 	if err := json.Unmarshal(output, &objects); err != nil {
-		slog.Debug("pw-dump parse failed, assuming port is live", "error", err)
+		slog.Debug("pw-dump parse failed", "error", err)
+		return nil, false
+	}
+	return objects, true
+}
+
+// isPortNodeRunning returns true only when the node hosting the port is actively processing audio.
+// Fail-open: returns true if pw-dump is unavailable, preserving old connect-always behaviour.
+func (pw *PipeWire) isPortNodeRunning(portAlias string) bool {
+	objects, ok := parsePwDump()
+	if !ok {
+		slog.Debug("pw-dump unavailable, assuming port is live", "port", portAlias)
 		return true
 	}
 

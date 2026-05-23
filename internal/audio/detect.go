@@ -1,6 +1,9 @@
 package audio
 
-import "strings"
+import (
+	"log/slog"
+	"strings"
+)
 
 // knownSoftwareApps are application names that produce audio output in PipeWire/JACK.
 // Used for retry strategy (isEphemeralPort) and source categorization (CategorizeAndGroup).
@@ -83,4 +86,72 @@ func flToFrPartner(port string) string {
 	default:
 		return ""
 	}
+}
+
+// LookupPortDescriptions queries pw-dump to map each JACK port alias to its device description
+// (node.description). Ports of HDMI, DisplayPort, or Dummy nodes return empty string.
+func LookupPortDescriptions(portGroups [][]string) map[string]string {
+	result := make(map[string]string)
+
+	objects, ok := parsePwDump()
+	if !ok {
+		return result
+	}
+
+	// Collect the set of port aliases we care about
+	wanted := make(map[string]bool)
+	for _, group := range portGroups {
+		for _, port := range group {
+			wanted[port] = true
+		}
+	}
+
+	// Pass 1: port alias → nodeID
+	portToNode := make(map[string]int)
+	for _, obj := range objects {
+		if obj["type"] != "PipeWire:Interface:Port" {
+			continue
+		}
+		info, _ := obj["info"].(map[string]interface{})
+		props, _ := info["props"].(map[string]interface{})
+		alias, _ := props["port.alias"].(string)
+		if !wanted[alias] {
+			continue
+		}
+		if nid, ok := props["node.id"].(float64); ok {
+			portToNode[alias] = int(nid)
+		}
+	}
+
+	// Pass 2: nodeID → node.description
+	nodeDesc := make(map[int]string)
+	for _, obj := range objects {
+		if obj["type"] != "PipeWire:Interface:Node" {
+			continue
+		}
+		id, ok := obj["id"].(float64)
+		if !ok {
+			continue
+		}
+		info, _ := obj["info"].(map[string]interface{})
+		props, _ := info["props"].(map[string]interface{})
+		desc, _ := props["node.description"].(string)
+		nodeDesc[int(id)] = desc
+	}
+
+	// Assemble result, filtering non-audio devices
+	for alias, nodeID := range portToNode {
+		desc := nodeDesc[nodeID]
+		if desc == "" {
+			continue
+		}
+		lower := strings.ToLower(desc)
+		if strings.Contains(lower, "hdmi") || strings.Contains(lower, "displayport") || strings.Contains(lower, "dummy") {
+			slog.Debug("Filtered non-audio device", "description", desc, "port", alias)
+			continue
+		}
+		result[alias] = desc
+	}
+
+	return result
 }

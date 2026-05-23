@@ -10,6 +10,26 @@ import (
 
 var trailingDigits = regexp.MustCompile(`(\d+)$`)
 
+// NamedPort is a hardware port group paired with an optional device description from pw-dump.
+type NamedPort struct {
+	Ports      []string // port name(s): 1 = mono, 2 = stereo
+	DeviceName string   // node.description from pw-dump; "" = fall back to hw_input_N
+}
+
+// sanitizeID converts a string to a lowercase underscore-separated slug suitable for use as an ID.
+func sanitizeID(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	parts := strings.FieldsFunc(b.String(), func(r rune) bool { return r == '_' })
+	return strings.Join(parts, "_")
+}
+
 // stereoRightPort returns the right-channel port suffix for a stereo pair.
 // If suffix2 is non-empty it is used directly; otherwise the last digit
 // group in suffix is incremented (e.g. "capture_AUX16" → "capture_AUX17").
@@ -90,7 +110,7 @@ func MatchSoftwareSources(swSources [][]string) []SoftwareSourceTemplate {
 // GenerateConfig builds a RootConfig from identified hardware devices,
 // running software sources, and any unmatched (generic) hardware ports.
 // Returns nil if no sources are provided.
-func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, genericPorts [][]string) *RootConfig {
+func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, genericPorts []NamedPort) *RootConfig {
 	if len(devices) == 0 && len(running) == 0 && len(genericPorts) == 0 {
 		return nil
 	}
@@ -158,12 +178,21 @@ func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, 
 		swRefs = append(swRefs, ChannelReference{Ref: sw.ID})
 	}
 
-	// Generic fallback for unrecognised hardware
-	for i, group := range genericPorts {
+	// Generic fallback for unrecognised hardware — use pw-dump device names when available
+	genericIDs := make([]string, len(genericPorts))
+	for i, p := range genericPorts {
 		id := fmt.Sprintf("hw_input_%d", i+1)
+		name := id
+		if p.DeviceName != "" {
+			slug := sanitizeID(p.DeviceName)
+			id = fmt.Sprintf("%s_%d", slug, i+1)
+			name = fmt.Sprintf("%s (input %d)", p.DeviceName, i+1)
+		}
+		genericIDs[i] = id
 		defs = append(defs, ChannelDefinition{
 			ID:        id,
-			Sources:   group,
+			Name:      name,
+			Sources:   p.Ports,
 			AudioMode: "mono",
 			Type:      "hardware",
 			Volume:    4.0,
@@ -207,8 +236,8 @@ func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, 
 	// Default fallback when no known device matched
 	if len(devices) == 0 {
 		var refs []ChannelReference
-		for i := range genericPorts {
-			refs = append(refs, ChannelReference{Ref: fmt.Sprintf("hw_input_%d", i+1)})
+		for _, id := range genericIDs {
+			refs = append(refs, ChannelReference{Ref: id})
 		}
 		for _, sw := range running {
 			refs = append(refs, ChannelReference{Ref: sw.ID})

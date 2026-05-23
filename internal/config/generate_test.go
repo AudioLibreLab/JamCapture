@@ -263,9 +263,9 @@ func TestGenerateConfigMultipleDevices(t *testing.T) {
 }
 
 func TestGenerateConfigGenericFallback(t *testing.T) {
-	genericPorts := [][]string{
-		{"alsa_input.pci-0000:capture_1"},
-		{"alsa_input.pci-0000:capture_2"},
+	genericPorts := []NamedPort{
+		{Ports: []string{"alsa_input.pci-0000:capture_1"}},
+		{Ports: []string{"alsa_input.pci-0000:capture_2"}},
 	}
 
 	root := GenerateConfig(nil, nil, genericPorts)
