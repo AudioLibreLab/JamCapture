@@ -146,20 +146,38 @@ pw-jack ffmpeg -f jack -channels 4 -i jamcapture_rec -ar 48000 \
 
 ### Audio Source Discovery
 
-To discover available audio sources for configuration:
+#### Automated detection (recommended)
+
+```bash
+# Step 1 — detect hardware (sound cards, audio interfaces)
+jamcapture config inithardware
+# Uses pw-dump for accurate device names; writes ~/.config/jamcapture.yaml
+
+# Step 2 — detect software sources (browsers, media players)
+# Start playing audio in Chrome/Spotify first, then:
+jamcapture config initsoftware
+# Polls for 10s, merges detected sources into existing config (non-destructive)
+
+# Options for initsoftware:
+jamcapture config initsoftware --timeout 20s          # longer detection window
+jamcapture config initsoftware --no-wait              # detect only what's playing right now
+jamcapture config initsoftware --profile xr18_studio  # enrich a specific hardware profile only
+```
+
+#### Manual discovery
 
 ```bash
 # Install PipeWire utilities (Ubuntu/Debian)
 sudo apt-get install pipewire-utils
 
-# List all available audio ports (inputs and outputs)
+# List all available audio ports
 pw-link -io
 
 # Example output:
 # Scarlett 2i2 3rd Gen:capture_FL    (input)
 # Scarlett 2i2 3rd Gen:capture_FR    (input)
-# Chrome:output_FL                   (output)
-# Chrome:output_FR                   (output)
+# Google Chrome:output_FL            (output)
+# Google Chrome:output_FR            (output)
 ```
 
 Use the exact port names from `pw-link -io` output in your configuration's `sources` fields.
@@ -185,7 +203,7 @@ definitions:
       name: guitar
       sources: ["Scarlett 2i2 3rd Gen:capture_FR"]
       audioMode: mono
-      type: input
+      type: hardware
       volume: 4.0
       delay: 0
 
@@ -193,15 +211,15 @@ definitions:
       name: mic
       sources: ["Scarlett 2i2 3rd Gen:capture_FL"]
       audioMode: mono
-      type: input
+      type: hardware
       volume: 3.0
       delay: 0
 
     - id: chrome_stereo
       name: chrome
-      sources: ["Chrome:output_FL", "Chrome:output_FR"]
+      sources: ["Google Chrome:output_FL", "Google Chrome:output_FR"]
       audioMode: stereo
-      type: monitor
+      type: software
       volume: 0.8
       delay: 250
 
@@ -271,12 +289,12 @@ supported_audio_extensions: [flac, wav, mp3]
 ## 📈 Development Progress & History
 
 ### ✅ Latest Updates (Current)
-1. **ID/Name System Refactoring**: Clean separation between channel IDs and display names
-2. **Enhanced Configuration Validation**: Duplicate prevention for both IDs and names
-3. **Channel Reuse Support**: Same definition referenced with different names/settings
-4. **Name Fallback Logic**: Automatic `name = id` when no custom name provided
-5. **E2E Configuration Tests**: Comprehensive validation of new ID/name features
-6. **Comprehensive Tests**: Unit and E2E tests for all configuration scenarios
+1. **Improved hardware detection**: `config inithardware` uses `pw-dump` JSON → accurate device names instead of "Matériel inconnu"
+2. **Software source detection**: `config initsoftware [--no-wait] [--timeout] [--profile]` — polls for running apps, merges non-destructively
+3. **Generic software detection**: `GenericSoftwareSources()` auto-detects apps not in the registry (MPV, OBS, etc.)
+4. **Stale Chrome port fix**: `isPortNodeRunning()` + `connectionMonitor` — skips idle nodes at recording start, reconnects within ~3s when Chrome becomes active
+5. **`parsePwDump()` helper**: shared `pw-dump` JSON parser used by both port state checking and device name lookup
+6. **Channel types**: `type: hardware` / `type: software` (was `input`/`monitor`)
 
 ### ✅ Recently Completed
 1. **Service Layer Architecture**: Unified interface between CLI/Web
@@ -310,6 +328,8 @@ supported_audio_extensions: [flac, wav, mp3]
 - ~~Port validation failures~~ → **Fixed**: Comprehensive detection
 - ~~Code duplication~~ → **Fixed**: Service layer architecture
 - ~~Config duplication~~ → **Fixed**: Unified channel structure
+- ~~"Matériel inconnu" in config init~~ → **Fixed**: `pw-dump` device name lookup
+- ~~Stale Chrome port → silence~~ → **Fixed**: node state check + connection monitor
 
 ---
 
