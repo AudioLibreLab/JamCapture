@@ -423,25 +423,35 @@ func (r *PipeWireRecorder) buildAndStartFFmpeg(channels []config.Channel, output
 }
 
 // buildFilterComplex generates the -filter_complex string and per-channel map labels
-// for a single N-channel JACK input. Mono channels map directly to [cN]; stereo
-// pairs are merged with amerge into [stereo_K].
+// for a single N-channel JACK input.
+//
+// Strategy: asplit=N duplicates the stream N times (one copy per source port);
+// pan=mono|c0=cN extracts channel N from each copy by position, which works
+// regardless of the channel layout name (avoids the '20c' layout parse error in
+// FFmpeg 6.1). Stereo pairs are extracted as two mono streams then amerge'd.
 func buildFilterComplex(channels []config.Channel, offsets, srcCounts []int, total int) (parts []string, mapLabels []string) {
-	// channelsplit splits the combined input into individual mono streams
-	var cLabels []string
+	// One split copy per source port
+	splitLabels := make([]string, total)
 	for i := 0; i < total; i++ {
-		cLabels = append(cLabels, fmt.Sprintf("[c%d]", i))
+		splitLabels[i] = fmt.Sprintf("[s%d]", i)
 	}
-	parts = append(parts, fmt.Sprintf("channelsplit=channel_layout=%dc", total)+strings.Join(cLabels, ""))
+	parts = append(parts, fmt.Sprintf("[0:a]asplit=%d%s", total, strings.Join(splitLabels, "")))
 
 	stereoIdx := 0
 	for i := range channels {
 		if srcCounts[i] == 2 {
-			label := fmt.Sprintf("[stereo_%d]", stereoIdx)
-			parts = append(parts, fmt.Sprintf("[c%d][c%d]amerge=inputs=2%s", offsets[i], offsets[i]+1, label))
-			mapLabels = append(mapLabels, label)
+			lLabel := fmt.Sprintf("[l%d]", stereoIdx)
+			rLabel := fmt.Sprintf("[r%d]", stereoIdx)
+			mergeLabel := fmt.Sprintf("[stereo_%d]", stereoIdx)
+			parts = append(parts, fmt.Sprintf("%span=mono|c0=c%d%s", splitLabels[offsets[i]], offsets[i], lLabel))
+			parts = append(parts, fmt.Sprintf("%span=mono|c0=c%d%s", splitLabels[offsets[i]+1], offsets[i]+1, rLabel))
+			parts = append(parts, fmt.Sprintf("%s%samerge=inputs=2%s", lLabel, rLabel, mergeLabel))
+			mapLabels = append(mapLabels, mergeLabel)
 			stereoIdx++
 		} else {
-			mapLabels = append(mapLabels, fmt.Sprintf("[c%d]", offsets[i]))
+			outLabel := fmt.Sprintf("[ch%d]", offsets[i])
+			parts = append(parts, fmt.Sprintf("%span=mono|c0=c%d%s", splitLabels[offsets[i]], offsets[i], outLabel))
+			mapLabels = append(mapLabels, outLabel)
 		}
 	}
 	return
