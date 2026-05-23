@@ -738,7 +738,7 @@ func (r *PipeWireRecorder) buildConnectionMap(channels []config.Channel) map[str
 	return connections
 }
 
-// connectionMonitor periodically reconnects sources whose node is running but not yet linked.
+// connectionMonitor periodically reconnects active ephemeral sources and disconnects idle ones.
 func (r *PipeWireRecorder) connectionMonitor(connections map[string]string) {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
@@ -748,10 +748,25 @@ func (r *PipeWireRecorder) connectionMonitor(connections map[string]string) {
 			return
 		case <-ticker.C:
 			for source, dest := range connections {
-				isRunning := !r.pipewire.isEphemeralPort(source) || r.pipewire.isPortNodeRunning(source)
-				if r.pipewire.portExists(source) && isRunning {
+				if !r.pipewire.isEphemeralPort(source) {
+					// Hardware ports: always reconnect if the link dropped
+					if r.pipewire.portExists(source) {
+						if err := r.pipewire.ensureConnected(source, dest); err != nil {
+							slog.Debug("Connection monitor: reconnect failed", "source", source, "dest", dest, "error", err)
+						}
+					}
+					continue
+				}
+				// Software/ephemeral port: connect when active, disconnect when idle
+				if r.pipewire.isPortNodeRunning(source) {
 					if err := r.pipewire.ensureConnected(source, dest); err != nil {
 						slog.Debug("Connection monitor: reconnect failed", "source", source, "dest", dest, "error", err)
+					}
+				} else {
+					if err := r.pipewire.DisconnectPorts(source, dest); err != nil {
+						slog.Debug("Connection monitor: disconnect idle source", "source", source, "dest", dest, "error", err)
+					} else {
+						slog.Info("Connection monitor: disconnected idle software source", "source", source)
 					}
 				}
 			}
