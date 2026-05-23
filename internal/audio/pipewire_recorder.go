@@ -187,10 +187,6 @@ func (r *PipeWireRecorder) recordingWorker(enabledChannels []config.Channel) {
 			if source == "" || source == "disabled" {
 				continue
 			}
-			if r.pipewire.isEphemeralPort(source) && !r.pipewire.isPortNodeRunning(source) {
-				slog.Info("Skipping idle software source, monitor will reconnect", "source", source)
-				continue
-			}
 			if err := r.pipewire.ConnectPortsWithRetry(source, dest); err != nil {
 				slog.Error("Failed to connect source", "channel", channel.Name, "source", source, "dest", dest, "error", err)
 			} else {
