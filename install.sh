@@ -38,14 +38,24 @@ echo "Installing ${BIN} ${VERSION} (${OS}/${ARCH})…"
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
-curl -fsSL -o "$TMP" "$URL"
+echo "Downloading from ${URL}…"
+if ! curl -fSL --progress-bar -o "$TMP" "$URL"; then
+  echo "Download failed. Check your internet connection or visit:"
+  echo "  https://github.com/${REPO}/releases/tag/${VERSION}"
+  exit 1
+fi
 chmod +x "$TMP"
 
 if [ -w "$INSTALL_DIR" ]; then
   mv "$TMP" "${INSTALL_DIR}/${BIN}"
 else
-  echo "Installing to ${INSTALL_DIR} (sudo required)…"
-  sudo mv "$TMP" "${INSTALL_DIR}/${BIN}"
+  echo "Installing to ${INSTALL_DIR} (requires sudo)…"
+  if ! sudo mv "$TMP" "${INSTALL_DIR}/${BIN}" </dev/tty; then
+    echo ""
+    echo "sudo failed. Install without sudo:"
+    echo "  INSTALL_DIR=~/.local/bin bash <(curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh)"
+    exit 1
+  fi
 fi
 
 echo ""
