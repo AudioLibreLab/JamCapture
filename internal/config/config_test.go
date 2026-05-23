@@ -15,10 +15,10 @@ func TestMergeConfigs_SelectionAndFallback(t *testing.T) {
 			Interface:  "jack",
 		},
 		Channels: []Channel{
-			{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "input", Volume: 4.0, Delay: 0},
-			{Name: "mic", Sources: []string{"system:capture_2"}, AudioMode: "mono", Type: "input", Volume: 4.0, Delay: 0},
-			{Name: "monitor_left", Sources: []string{"system:monitor_FL"}, AudioMode: "mono", Type: "monitor", Volume: 0.8, Delay: 100},
-			{Name: "monitor_right", Sources: []string{"system:monitor_FR"}, AudioMode: "mono", Type: "monitor", Volume: 0.8, Delay: 100},
+			{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "hardware", Volume: 4.0, Delay: 0},
+			{Name: "mic", Sources: []string{"system:capture_2"}, AudioMode: "mono", Type: "hardware", Volume: 4.0, Delay: 0},
+			{Name: "monitor_left", Sources: []string{"system:monitor_FL"}, AudioMode: "mono", Type: "software", Volume: 0.8, Delay: 100},
+			{Name: "monitor_right", Sources: []string{"system:monitor_FR"}, AudioMode: "mono", Type: "software", Volume: 0.8, Delay: 100},
 		},
 		Output: OutputConfig{
 			Directory: "~/Audio/Default",
@@ -51,13 +51,13 @@ func TestMergeConfigs_SelectionAndFallback(t *testing.T) {
 
 	// First channel: guitar with overridden source, inherited type
 	guitar := result.Channels[0]
-	if guitar.Name != "guitar" || len(guitar.Sources) != 1 || guitar.Sources[0] != "scarlett:capture_1" || guitar.Type != "input" {
+	if guitar.Name != "guitar" || len(guitar.Sources) != 1 || guitar.Sources[0] != "scarlett:capture_1" || guitar.Type != "hardware" {
 		t.Errorf("Guitar channel incorrect: got %+v", guitar)
 	}
 
 	// Second channel: monitor_left with inherited source and type
 	monitor := result.Channels[1]
-	if monitor.Name != "monitor_left" || len(monitor.Sources) != 1 || monitor.Sources[0] != "system:monitor_FL" || monitor.Type != "monitor" {
+	if monitor.Name != "monitor_left" || len(monitor.Sources) != 1 || monitor.Sources[0] != "system:monitor_FL" || monitor.Type != "software" {
 		t.Errorf("Monitor channel incorrect: got %+v", monitor)
 	}
 
@@ -178,7 +178,7 @@ func TestMergeConfigs_ProfileOnly(t *testing.T) {
 			Interface:  "alsa",
 		},
 		Channels: []Channel{
-			{Name: "guitar", Sources: []string{"hw:1,0:capture_1"}, AudioMode: "mono", Type: "input", Volume: 3.0, Delay: 0},
+			{Name: "guitar", Sources: []string{"hw:1,0:capture_1"}, AudioMode: "mono", Type: "hardware", Volume: 3.0, Delay: 0},
 		},
 		Output: OutputConfig{
 			Directory: "/tmp/recordings",
@@ -207,8 +207,8 @@ func TestMergeConfigs_ChannelOverride(t *testing.T) {
 	// Test channel override behavior
 	base := &Config{
 		Channels: []Channel{
-			{Name: "guitar", Sources: []string{"base:capture"}, AudioMode: "mono", Type: "input", Volume: 1.0, Delay: 150},
-			{Name: "monitor", Sources: []string{"base:monitor"}, AudioMode: "mono", Type: "monitor", Volume: 0.5, Delay: 100},
+			{Name: "guitar", Sources: []string{"base:capture"}, AudioMode: "mono", Type: "hardware", Volume: 1.0, Delay: 150},
+			{Name: "monitor", Sources: []string{"base:monitor"}, AudioMode: "mono", Type: "software", Volume: 0.5, Delay: 100},
 		},
 	}
 
@@ -251,8 +251,8 @@ func TestMergeConfigs_EmptyProfile(t *testing.T) {
 	// Test when profile has empty channels list - should result in no channels
 	base := &Config{
 		Channels: []Channel{
-			{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "input"},
-			{Name: "mic", Sources: []string{"system:capture_2"}, AudioMode: "mono", Type: "input"},
+			{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "hardware"},
+			{Name: "mic", Sources: []string{"system:capture_2"}, AudioMode: "mono", Type: "hardware"},
 		},
 	}
 
@@ -322,7 +322,7 @@ func TestBuildMixFilter(t *testing.T) {
 		{
 			name: "single mono channel",
 			channels: []Channel{
-				{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "input", Volume: 2.0, Delay: 0},
+				{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "hardware", Volume: 2.0, Delay: 0},
 			},
 			expectedFilter:  "[0:0]volume=2.0,aformat=channel_layouts=stereo",
 			expectedOutputs: 2,
@@ -330,7 +330,7 @@ func TestBuildMixFilter(t *testing.T) {
 		{
 			name: "single stereo channel",
 			channels: []Channel{
-				{Name: "chrome", Sources: []string{"Chrome:output_FL", "Chrome:output_FR"}, AudioMode: "stereo", Type: "monitor", Volume: 0.8, Delay: 250},
+				{Name: "chrome", Sources: []string{"Chrome:output_FL", "Chrome:output_FR"}, AudioMode: "stereo", Type: "software", Volume: 0.8, Delay: 250},
 			},
 			expectedFilter:  "[0:0]volume=0.8,adelay=250|250",
 			expectedOutputs: 2,
@@ -338,7 +338,7 @@ func TestBuildMixFilter(t *testing.T) {
 		{
 			name: "mono with delay",
 			channels: []Channel{
-				{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "input", Volume: 1.5, Delay: 100},
+				{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "hardware", Volume: 1.5, Delay: 100},
 			},
 			expectedFilter:  "[0:0]volume=1.5,adelay=100,aformat=channel_layouts=stereo",
 			expectedOutputs: 2,
@@ -346,8 +346,8 @@ func TestBuildMixFilter(t *testing.T) {
 		{
 			name: "mixed mono and stereo channels",
 			channels: []Channel{
-				{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "input", Volume: 2.0, Delay: 0},
-				{Name: "chrome", Sources: []string{"Chrome:output_FL", "Chrome:output_FR"}, AudioMode: "stereo", Type: "monitor", Volume: 0.8, Delay: 0},
+				{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "hardware", Volume: 2.0, Delay: 0},
+				{Name: "chrome", Sources: []string{"Chrome:output_FL", "Chrome:output_FR"}, AudioMode: "stereo", Type: "software", Volume: 0.8, Delay: 0},
 			},
 			expectedFilter:  "[0:0]volume=2.0,aformat=channel_layouts=stereo[ch_guitar];[0:1]volume=0.8[ch_chrome];[ch_guitar][ch_chrome]amix=inputs=2:normalize=0[mixed];[mixed]alimiter=limit=0.9:attack=7:release=150",
 			expectedOutputs: 2,
@@ -382,7 +382,7 @@ definitions:
         - id: guitar
           name: guitar
           sources: ["system:capture_1"]
-          type: input
+          type: hardware
           volume: 4.0
           delay: 0
 configs:
@@ -438,7 +438,7 @@ definitions:
         - id: guitar
           name: guitar
           sources: ["system:capture_1"]
-          type: input
+          type: hardware
           volume: 4.0
           delay: 0
 configs:

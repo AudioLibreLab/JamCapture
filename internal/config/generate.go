@@ -165,7 +165,7 @@ func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, 
 			ID:        id,
 			Sources:   group,
 			AudioMode: "mono",
-			Type:      "input",
+			Type:      "hardware",
 			Volume:    4.0,
 		})
 	}

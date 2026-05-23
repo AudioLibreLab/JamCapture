@@ -122,9 +122,9 @@ var defaultConfig = Config{
 		Backend:    "auto", // new preferred field
 	},
 	Channels: []Channel{
-		{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "input", Volume: 4.0, Delay: 0},
-		{Name: "monitor_left", Sources: []string{"system:monitor_FL"}, AudioMode: "mono", Type: "monitor", Volume: 0.8, Delay: 0},
-		{Name: "monitor_right", Sources: []string{"system:monitor_FR"}, AudioMode: "mono", Type: "monitor", Volume: 0.8, Delay: 0},
+		{Name: "guitar", Sources: []string{"system:capture_1"}, AudioMode: "mono", Type: "hardware", Volume: 4.0, Delay: 0},
+		{Name: "monitor_left", Sources: []string{"system:monitor_FL"}, AudioMode: "mono", Type: "software", Volume: 0.8, Delay: 0},
+		{Name: "monitor_right", Sources: []string{"system:monitor_FR"}, AudioMode: "mono", Type: "software", Volume: 0.8, Delay: 0},
 	},
 	Output: OutputConfig{
 		Directory:           filepath.Join(os.Getenv("HOME"), "Audio", "JamCapture"),
@@ -590,10 +590,10 @@ func validateAudioSources(config *Config) error {
 
 		// Validate channel type
 		if channel.Type == "" {
-			return fmt.Errorf("channel[%d] '%s' must have a type (input, monitor)", i, channel.Name)
+			return fmt.Errorf("channel[%d] '%s' must have a type (hardware, software)", i, channel.Name)
 		}
-		if channel.Type != "input" && channel.Type != "monitor" {
-			return fmt.Errorf("channel[%d] '%s' type must be 'input' or 'monitor', got: %s", i, channel.Name, channel.Type)
+		if channel.Type != "hardware" && channel.Type != "software" {
+			return fmt.Errorf("channel[%d] '%s' type must be 'hardware' or 'software', got: %s", i, channel.Name, channel.Type)
 		}
 
 		// Validate audioMode
@@ -1006,8 +1006,8 @@ func validateChannelDefinition(def ChannelDefinition, prefix string) error {
 	if def.Type == "" {
 		return fmt.Errorf("%s: 'type' is required", prefix)
 	}
-	if def.Type != "input" && def.Type != "monitor" {
-		return fmt.Errorf("%s: 'type' must be 'input' or 'monitor', got: %s", prefix, def.Type)
+	if def.Type != "hardware" && def.Type != "software" {
+		return fmt.Errorf("%s: 'type' must be 'hardware' or 'software', got: %s", prefix, def.Type)
 	}
 
 	if def.AudioMode != "" && def.AudioMode != "mono" && def.AudioMode != "stereo" {

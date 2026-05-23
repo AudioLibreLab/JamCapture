@@ -1,8 +1,8 @@
-active_config: scarlett_studio
+active_config: xr18_studio
 audio:
     backend: pipewire
+    buffer_size: 64
     sample_rate: 48000
-    buffer_size: 64  # samples PipeWire quantum — 64/128=moins de latence, 256=plus stable
 configs:
     carla:
         auto_mix: true
@@ -63,7 +63,7 @@ definitions:
           name: guitar
           sources:
             - alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FR
-          type: input
+          type: hardware
           volume: 4
         - audiomode: mono
           delay: 0
@@ -71,35 +71,35 @@ definitions:
           name: microphone
           sources:
             - alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL
-          type: input
+          type: hardware
           volume: 3
         - audiomode: mono
           delay: 0
           id: xr18_1
           sources:
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX0
-          type: input
+          type: hardware
           volume: 4
         - audiomode: mono
           delay: 0
           id: xr18_2
           sources:
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX1
-          type: input
+          type: hardware
           volume: 4
         - audiomode: mono
           delay: 0
           id: xr18_3
           sources:
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX2
-          type: input
+          type: hardware
           volume: 4
         - audiomode: mono
           delay: 0
           id: xr18_9
           sources:
             - alsa_input.usb-BEHRINGER_XR18_production_03-00.pro-input-0:capture_AUX8
-          type: input
+          type: hardware
           volume: 4
         - audiomode: stereo
           delay: 0
@@ -108,14 +108,14 @@ definitions:
           sources:
             - Google Chrome:output_FL
             - Google Chrome:output_FR
-          type: monitor
+          type: software
           volume: 0.8
         - audiomode: mono
           delay: 0
           id: carla
           sources:
             - Carla-Patchbay:audio-out1
-          type: input
+          type: hardware
           volume: 4
 globals:
     audio_player: vlc

@@ -83,7 +83,7 @@ func (m *Mixer) MixWithOptions(songName string, guitarVol, backingVol float64, d
 		if channel.Name == "guitar" && guitarVol > 0 {
 			m.cfg.Channels[i].Volume = guitarVol
 		}
-		if (channel.Name == "monitor" || channel.Type == "monitor") && backingVol > 0 {
+		if (channel.Name == "monitor" || channel.Type == "software") && backingVol > 0 {
 			m.cfg.Channels[i].Volume = backingVol
 		}
 		if delayMs >= 0 {

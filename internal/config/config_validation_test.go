@@ -14,7 +14,7 @@ active_config: test
 definitions:
   channels:
     - id: test_guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
       audiomode: mono
@@ -22,7 +22,7 @@ definitions:
       delay: 0
 
     - id: test_monitor
-      type: monitor
+      type: software
       sources:
         - system:monitor_FL
         - system:monitor_FR
@@ -70,7 +70,7 @@ supported_audio_extensions:
 
 	// Check first definition
 	def := rootConfig.Definitions.Channels[0]
-	if def.ID != "test_guitar" || def.Type != "input" {
+	if def.ID != "test_guitar" || def.Type != "hardware" {
 		t.Errorf("Invalid first definition: %+v", def)
 	}
 
@@ -152,7 +152,7 @@ definitions:
   channels:
     - id: valid_definition
       name: guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
       audiomode: mono
@@ -186,7 +186,7 @@ definitions:
   channels:
     - id: duplicate_id
       name: guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
       audiomode: mono
@@ -195,7 +195,7 @@ definitions:
 
     - id: duplicate_id
       name: mic
-      type: input
+      type: hardware
       sources:
         - system:capture_2
       audiomode: mono
@@ -233,7 +233,7 @@ func TestValidateConfigurationFormat_InvalidChannelDefinition(t *testing.T) {
 definitions:
   channels:
     - name: guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
       audiomode: mono
@@ -253,7 +253,7 @@ definitions:
       audiomode: mono
       volume: 2.0
 `,
-			expectedErr: "'type' must be 'input' or 'monitor', got: invalid",
+			expectedErr: "'type' must be 'hardware' or 'software', got: invalid",
 		},
 		{
 			name: "invalid audioMode",
@@ -261,7 +261,7 @@ definitions:
 definitions:
   channels:
     - id: test_guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
       audiomode: invalid
@@ -275,7 +275,7 @@ definitions:
 definitions:
   channels:
     - id: test_guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
       audiomode: mono
@@ -289,7 +289,7 @@ definitions:
 definitions:
   channels:
     - id: test_guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
       audiomode: mono
@@ -304,7 +304,7 @@ definitions:
 definitions:
   channels:
     - id: test_chrome
-      type: monitor
+      type: software
       sources:
         - Chrome:output_FL
       audiomode: stereo
@@ -318,7 +318,7 @@ definitions:
 definitions:
   channels:
     - id: test_guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
         - system:capture_2
@@ -397,7 +397,7 @@ active_config: test
 definitions:
   channels:
     - id: test_guitar
-      type: input
+      type: hardware
       sources:
         - system:capture_1
       audiomode: mono
@@ -429,7 +429,7 @@ func TestConvertProfileToConfig_ValidProfile(t *testing.T) {
 		Channels: []ChannelDefinition{
 			{
 				ID:        "test_guitar",
-				Type:      "input",
+				Type:      "hardware",
 				Sources:   []string{"system:capture_1"},
 				AudioMode: "mono",
 				Volume:    2.0,
@@ -437,7 +437,7 @@ func TestConvertProfileToConfig_ValidProfile(t *testing.T) {
 			},
 			{
 				ID:        "test_monitor",
-				Type:      "monitor",
+				Type:      "software",
 				Sources:   []string{"system:monitor_FL", "system:monitor_FR"},
 				AudioMode: "stereo",
 				Volume:    0.8,
@@ -484,7 +484,7 @@ func TestConvertProfileToConfig_ValidProfile(t *testing.T) {
 
 	// Check first channel (guitar with volume override)
 	guitar := config.Channels[0]
-	if guitar.Name != "guitar" || guitar.Type != "input" {
+	if guitar.Name != "guitar" || guitar.Type != "hardware" {
 		t.Errorf("Invalid guitar channel: %+v", guitar)
 	}
 	if guitar.Volume != 3.5 {
@@ -496,7 +496,7 @@ func TestConvertProfileToConfig_ValidProfile(t *testing.T) {
 
 	// Check second channel (monitor with delay override)
 	monitor := config.Channels[1]
-	if monitor.Name != "monitor" || monitor.Type != "monitor" {
+	if monitor.Name != "monitor" || monitor.Type != "software" {
 		t.Errorf("Invalid monitor channel: %+v", monitor)
 	}
 	if monitor.Volume != 0.8 { // Should inherit original volume
@@ -512,7 +512,7 @@ func TestConvertProfileToConfig_MissingReference(t *testing.T) {
 		Channels: []ChannelDefinition{
 			{
 				ID:        "existing_channel",
-				Type:      "input",
+				Type:      "hardware",
 				Sources:   []string{"system:capture_1"},
 				AudioMode: "mono",
 				Volume:    2.0,
