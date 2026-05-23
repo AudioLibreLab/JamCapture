@@ -59,14 +59,21 @@ jamcapture serve
 # Open the displayed URL on your smartphone (e.g. http://192.168.1.x:8080)
 ```
 
-On first launch with no config, `jamcapture serve` automatically runs `pw-link -io`,
-detects all connected hardware and software audio sources, writes
-`~/.config/jamcapture.yaml`, and starts the server.
+On first launch with no config, `jamcapture serve` auto-detects connected hardware
+sources, writes `~/.config/jamcapture.yaml`, and starts the server.
 
 To regenerate or inspect the config:
 
 ```bash
-jamcapture config init   # re-detect sources and overwrite config (backs up old one)
+# Step 1 — detect hardware (sound cards, audio interfaces)
+jamcapture config inithardware
+
+# Step 2 — detect software sources (start Chrome/Spotify first, then run)
+jamcapture config initsoftware
+jamcapture config initsoftware --timeout 20s      # longer detection window
+jamcapture config initsoftware --no-wait          # detect only what's playing right now
+jamcapture config initsoftware --profile 2i2_studio  # update only one profile's _with_monitor variant
+
 jamcapture sources       # list currently available audio sources
 jamcapture config show   # display the resolved active configuration
 ```
@@ -75,13 +82,18 @@ jamcapture config show   # display the resolved active configuration
 
 ### Auto-generated config
 
-On first run, `jamcapture serve` (or `jamcapture config init`) detects all available
-PipeWire/JACK sources and writes `~/.config/jamcapture.yaml` automatically.
+Config is built in two steps:
 
-For a system with a Scarlett 2i2 and Chrome open, the generated config looks like:
+1. **`jamcapture config inithardware`** — detects connected hardware interfaces using
+   `pw-dump`, writes `~/.config/jamcapture.yaml` with one `_studio` profile per device.
+2. **`jamcapture config initsoftware`** — detects running software sources (Chrome,
+   Spotify…) and merges them non-destructively, creating a matching `_with_monitor`
+   profile for each `_studio` profile.
+
+After step 1 on a system with a **Scarlett 2i2**:
 
 ```yaml
-active_config: default
+active_config: 2i2_studio
 audio:
   backend: pipewire
   sample_rate: 48000
@@ -91,38 +103,57 @@ globals:
     backingtracks_directory: ~/Audio/JamCapture/BackingTracks
 definitions:
   channels:
-    - id: hw_input_1
-      audiomode: mono
-      type: input
+    - id: 2i2_guitar
+      name: guitar
+      audioMode: mono
+      type: hardware
       volume: 4.0
-      delay: 0
-      sources:
-        - alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL
-    - id: hw_input_2
-      audiomode: mono
-      type: input
-      volume: 4.0
-      delay: 0
       sources:
         - alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FR
-    - id: chrome_stereo
-      audiomode: stereo
-      type: monitor
-      volume: 0.8
-      delay: 0
+    - id: 2i2_mic
+      name: mic
+      audioMode: mono
+      type: hardware
+      volume: 3.0
       sources:
-        - Chrome:output_FL
-        - Chrome:output_FR
+        - alsa_input.usb-Focusrite_Scarlett_2i2_USB_Y814JK8264026F-00.analog-stereo:capture_FL
 configs:
-  default:
+  2i2_studio:
     auto_mix: true
     channels:
-      - ref: hw_input_1
-      - ref: hw_input_2
-      - ref: chrome_stereo
+      - ref: 2i2_guitar
+      - ref: 2i2_mic
     output:
       format: flac
 supported_audio_extensions: [flac, wav, mp3]
+```
+
+After step 2 with **Chrome playing**, `initsoftware` merges Chrome and adds a
+`2i2_with_monitor` profile:
+
+```yaml
+definitions:
+  channels:
+    # … hardware channels above …
+    - id: chrome_stereo
+      name: chrome
+      audioMode: stereo
+      type: software
+      volume: 0.8
+      sources:
+        - Google Chrome:output_FL
+        - Google Chrome:output_FR
+configs:
+  2i2_studio:        # hardware only — clean recording
+    …
+  2i2_with_monitor:  # hardware + Chrome — record while listening to backing track
+    auto_mix: true
+    channels:
+      - ref: 2i2_guitar
+      - ref: 2i2_mic
+      - ref: chrome_stereo
+    output:
+      format: flac
 ```
 
 ### Customizing the config
@@ -229,7 +260,8 @@ go test ./...
 ./tests/e2e-test.sh
 
 # Test auto-detection without starting the server
-./jamcapture config init
+./jamcapture config inithardware
+./jamcapture config initsoftware   # start Chrome/Spotify first
 ./jamcapture config show
 
 # Use a specific config file
