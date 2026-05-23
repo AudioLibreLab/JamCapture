@@ -174,8 +174,8 @@ func (r *PipeWireRecorder) recordingWorker(enabledChannels []config.Channel) {
 			if len(channel.Sources) > 0 {
 				source := channel.Sources[0]
 				if source != "" && source != "disabled" {
-					if !r.pipewire.isPortNodeRunning(source) {
-						slog.Info("Skipping idle source port, monitor will reconnect when active", "source", source)
+					if r.pipewire.isEphemeralPort(source) && !r.pipewire.isPortNodeRunning(source) {
+						slog.Info("Skipping idle software source port, monitor will reconnect when active", "source", source)
 						continue
 					}
 					if err := r.pipewire.ConnectPortsWithRetry(source, destPort); err != nil {
@@ -203,8 +203,8 @@ func (r *PipeWireRecorder) recordingWorker(enabledChannels []config.Channel) {
 					continue
 				}
 
-				if !r.pipewire.isPortNodeRunning(source) {
-					slog.Info("Skipping idle source port, monitor will reconnect when active", "source", source)
+				if r.pipewire.isEphemeralPort(source) && !r.pipewire.isPortNodeRunning(source) {
+					slog.Info("Skipping idle software source port, monitor will reconnect when active", "source", source)
 					continue
 				}
 				if err := r.pipewire.ConnectPortsWithRetry(source, destPort); err != nil {
@@ -749,7 +749,8 @@ func (r *PipeWireRecorder) connectionMonitor(connections map[string]string) {
 			return
 		case <-ticker.C:
 			for source, dest := range connections {
-				if r.pipewire.portExists(source) && r.pipewire.isPortNodeRunning(source) {
+				isRunning := !r.pipewire.isEphemeralPort(source) || r.pipewire.isPortNodeRunning(source)
+				if r.pipewire.portExists(source) && isRunning {
 					if err := r.pipewire.ensureConnected(source, dest); err != nil {
 						slog.Debug("Connection monitor: reconnect failed", "source", source, "dest", dest, "error", err)
 					}

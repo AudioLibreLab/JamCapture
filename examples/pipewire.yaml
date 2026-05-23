@@ -1,7 +1,7 @@
 active_config: xr18_studio
 audio:
     backend: pipewire
-    buffer_size: 64
+    buffer_size: 256
     sample_rate: 48000
 configs:
     carla:
