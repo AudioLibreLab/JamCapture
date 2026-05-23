@@ -365,15 +365,14 @@ func (r *PipeWireRecorder) Cleanup() error {
 
 // buildAndStartFFmpeg constructs and starts the FFmpeg command for PipeWire recording
 func (r *PipeWireRecorder) buildAndStartFFmpeg(channels []config.Channel, outputFile string) error {
-	// Set PipeWire environment variables
-	bufferSize := r.cfg.Audio.BufferSize
-	if bufferSize == 0 {
-		bufferSize = 256
-	}
-	quantum := fmt.Sprintf("%d/%d", bufferSize, r.cfg.Audio.SampleRate)
 	env := os.Environ()
-	env = append(env, "PIPEWIRE_QUANTUM="+quantum)
-	env = append(env, "PIPEWIRE_LATENCY="+quantum)
+	// Only force PipeWire quantum when explicitly configured; otherwise let the
+	// system master clock (e.g. Scarlett) manage its own quantum for low-latency monitoring.
+	if bufferSize := r.cfg.Audio.BufferSize; bufferSize > 0 {
+		quantum := fmt.Sprintf("%d/%d", bufferSize, r.cfg.Audio.SampleRate)
+		env = append(env, "PIPEWIRE_QUANTUM="+quantum)
+		env = append(env, "PIPEWIRE_LATENCY="+quantum)
+	}
 
 	// Build FFmpeg command - create individual JACK clients per channel like main branch
 	args := []string{
