@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -154,64 +155,46 @@ func (r *PipeWireRecorder) StartRecording() error {
 
 // recordingWorker handles the recording process in background
 func (r *PipeWireRecorder) recordingWorker(enabledChannels []config.Channel) {
-	// Wait for FFmpeg JACK ports to appear (1 second)
 	time.Sleep(1 * time.Second)
 
-	// Connect all channel sources to their corresponding FFmpeg inputs
-	for _, channel := range enabledChannels {
-		// Determine if this is mono or stereo based on sources
-		if len(channel.Sources) <= 1 {
-			// Mono channel - connect to input_1
-			destPort := fmt.Sprintf("jamcapture_%s:input_1", channel.Name)
+	// Wait for the single JACK client to register its first port
+	firstPort := "jamcapture_rec:input_1"
+	if err := r.waitForSpecificPort(firstPort, 10*time.Second); err != nil {
+		slog.Error("FFmpeg JACK client did not appear", "port", firstPort, "error", err)
+		return
+	}
 
-			// Wait for FFmpeg port to be available
-			if err := r.waitForSpecificPort(destPort, 5*time.Second); err != nil {
-				slog.Error("FFmpeg JACK port did not appear", "port", destPort, "error", err)
+	globalIdx := 1
+	for _, channel := range enabledChannels {
+		count := len(channel.Sources)
+		if count > 2 {
+			count = 2
+		}
+		if count == 0 {
+			globalIdx++
+			continue
+		}
+
+		for i := 0; i < count; i++ {
+			if i >= len(channel.Sources) {
+				globalIdx++
+				break
+			}
+			source := channel.Sources[i]
+			dest := fmt.Sprintf("jamcapture_rec:input_%d", globalIdx)
+			globalIdx++
+
+			if source == "" || source == "disabled" {
 				continue
 			}
-
-			// Connect the source to the input
-			if len(channel.Sources) > 0 {
-				source := channel.Sources[0]
-				if source != "" && source != "disabled" {
-					if r.pipewire.isEphemeralPort(source) && !r.pipewire.isPortNodeRunning(source) {
-						slog.Info("Skipping idle software source port, monitor will reconnect when active", "source", source)
-						continue
-					}
-					if err := r.pipewire.ConnectPortsWithRetry(source, destPort); err != nil {
-						slog.Error("Failed to connect mono source", "channel", channel.Name, "source", source, "dest", destPort, "error", err)
-					} else {
-						slog.Info("Connected mono source successfully", "channel", channel.Name, "source", source, "dest", destPort)
-					}
-				}
+			if r.pipewire.isEphemeralPort(source) && !r.pipewire.isPortNodeRunning(source) {
+				slog.Info("Skipping idle software source, monitor will reconnect", "source", source)
+				continue
 			}
-		} else {
-			// Stereo channel - connect to input_1 and input_2
-			for i, source := range channel.Sources {
-				if i >= 2 { // Only handle first 2 sources for stereo
-					break
-				}
-				if source == "" || source == "disabled" {
-					continue
-				}
-
-				destPort := fmt.Sprintf("jamcapture_%s:input_%d", channel.Name, i+1)
-
-				// Wait for FFmpeg port to be available
-				if err := r.waitForSpecificPort(destPort, 5*time.Second); err != nil {
-					slog.Error("FFmpeg JACK port did not appear", "port", destPort, "error", err)
-					continue
-				}
-
-				if r.pipewire.isEphemeralPort(source) && !r.pipewire.isPortNodeRunning(source) {
-					slog.Info("Skipping idle software source port, monitor will reconnect when active", "source", source)
-					continue
-				}
-				if err := r.pipewire.ConnectPortsWithRetry(source, destPort); err != nil {
-					slog.Error("Failed to connect stereo source", "channel", channel.Name, "source", source, "dest", destPort, "error", err)
-				} else {
-					slog.Info("Connected stereo source successfully", "channel", channel.Name, "source", source, "dest", destPort)
-				}
+			if err := r.pipewire.ConnectPortsWithRetry(source, dest); err != nil {
+				slog.Error("Failed to connect source", "channel", channel.Name, "source", source, "dest", dest, "error", err)
+			} else {
+				slog.Info("Connected source", "channel", channel.Name, "source", source, "dest", dest)
 			}
 		}
 	}
@@ -363,86 +346,105 @@ func (r *PipeWireRecorder) Cleanup() error {
 	return nil
 }
 
-// buildAndStartFFmpeg constructs and starts the FFmpeg command for PipeWire recording
+// buildAndStartFFmpeg constructs and starts the FFmpeg command for PipeWire recording.
+// Uses a single JACK client (jamcapture_rec) with all channels multiplexed to avoid
+// xruns caused by multiple simultaneous JACK clients.
 func (r *PipeWireRecorder) buildAndStartFFmpeg(channels []config.Channel, outputFile string) error {
 	env := os.Environ()
-	// Only force PipeWire quantum when explicitly configured; otherwise let the
-	// system master clock (e.g. Scarlett) manage its own quantum for low-latency monitoring.
 	if bufferSize := r.cfg.Audio.BufferSize; bufferSize > 0 {
 		quantum := fmt.Sprintf("%d/%d", bufferSize, r.cfg.Audio.SampleRate)
 		env = append(env, "PIPEWIRE_QUANTUM="+quantum)
 		env = append(env, "PIPEWIRE_LATENCY="+quantum)
 	}
 
-	// Build FFmpeg command - create individual JACK clients per channel like main branch
-	args := []string{
-		"pw-jack",
-		"ffmpeg",
-	}
-
-	// Add each channel as a separate JACK input
-	for _, channel := range channels {
-		// Determine number of channels for this input (mono=1, stereo=2)
-		channelCount := len(channel.Sources)
-		if channelCount == 0 {
-			channelCount = 1 // Default to mono
+	// Compute per-channel source counts and global offsets
+	totalInputs := 0
+	offsets := make([]int, len(channels))
+	srcCounts := make([]int, len(channels))
+	for i, ch := range channels {
+		count := len(ch.Sources)
+		if count == 0 {
+			count = 1
 		}
-		if channelCount > 2 {
-			channelCount = 2 // Cap at stereo
+		if count > 2 {
+			count = 2
 		}
-
-		args = append(args,
-			"-f", "jack",
-			"-channels", fmt.Sprintf("%d", channelCount),
-			"-i", fmt.Sprintf("jamcapture_%s", channel.Name),
-		)
+		offsets[i] = totalInputs
+		srcCounts[i] = count
+		totalInputs += count
 	}
 
-	// Add sample rate
-	args = append(args, "-ar", fmt.Sprintf("%d", r.cfg.Audio.SampleRate))
+	args := []string{"pw-jack", "ffmpeg"}
 
-	// Map each input to a separate track with metadata
-	for i, channel := range channels {
-		args = append(args, "-map", fmt.Sprintf("%d:0", i))
-		args = append(args, fmt.Sprintf("-metadata:s:a:%d", i), fmt.Sprintf("title=%s", channel.Name))
-	}
-
-	// Add codec and output
+	// Single JACK client with all inputs combined
 	args = append(args,
-		"-c:a", r.cfg.Output.Format,
-		"-y", // Overwrite output
-		outputFile,
+		"-f", "jack",
+		"-channels", strconv.Itoa(totalInputs),
+		"-i", "jamcapture_rec",
 	)
+	args = append(args, "-ar", strconv.Itoa(r.cfg.Audio.SampleRate))
+
+	// filter_complex: split N-channel input into individual streams, merge stereo pairs
+	filterParts, mapLabels := buildFilterComplex(channels, offsets, srcCounts, totalInputs)
+	if len(filterParts) > 0 {
+		args = append(args, "-filter_complex", strings.Join(filterParts, ";"))
+	}
+
+	for i, channel := range channels {
+		args = append(args, "-map", mapLabels[i])
+		args = append(args, fmt.Sprintf("-metadata:s:a:%d", i), "title="+channel.Name)
+	}
+
+	args = append(args, "-c:a", r.cfg.Output.Format, "-y", outputFile)
 
 	slog.Info("Starting PipeWire FFmpeg", "command", strings.Join(args, " "))
 
-	// Create command
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Env = env
 
-	// Capture output for debugging
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
-
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
-	// Start command
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start FFmpeg: %w", err)
 	}
 
 	r.ffmpegCmd = cmd
-
-	// Start output readers
 	go r.readOutput(stdout, &r.stdoutBuf, "stdout")
 	go r.readOutput(stderr, &r.stderrBuf, "stderr")
 
 	return nil
+}
+
+// buildFilterComplex generates the -filter_complex string and per-channel map labels
+// for a single N-channel JACK input. Mono channels map directly to [cN]; stereo
+// pairs are merged with amerge into [stereo_K].
+func buildFilterComplex(channels []config.Channel, offsets, srcCounts []int, total int) (parts []string, mapLabels []string) {
+	// channelsplit splits the combined input into individual mono streams
+	var cLabels []string
+	for i := 0; i < total; i++ {
+		cLabels = append(cLabels, fmt.Sprintf("[c%d]", i))
+	}
+	parts = append(parts, fmt.Sprintf("channelsplit=channel_layout=%dc", total)+strings.Join(cLabels, ""))
+
+	stereoIdx := 0
+	for i := range channels {
+		if srcCounts[i] == 2 {
+			label := fmt.Sprintf("[stereo_%d]", stereoIdx)
+			parts = append(parts, fmt.Sprintf("[c%d][c%d]amerge=inputs=2%s", offsets[i], offsets[i]+1, label))
+			mapLabels = append(mapLabels, label)
+			stereoIdx++
+		} else {
+			mapLabels = append(mapLabels, fmt.Sprintf("[c%d]", offsets[i]))
+		}
+	}
+	return
 }
 
 // readOutput reads from a pipe and buffers output
@@ -713,26 +715,29 @@ func (r *PipeWireRecorder) hasDuplicateSources() bool {
 }
 
 // buildConnectionMap mirrors the source→dest naming logic in recordingWorker.
+// Uses jamcapture_rec:input_<globalIdx> to match the single JACK client layout.
 func (r *PipeWireRecorder) buildConnectionMap(channels []config.Channel) map[string]string {
 	connections := make(map[string]string)
+	globalIdx := 1
 	for _, channel := range channels {
-		if len(channel.Sources) <= 1 {
-			if len(channel.Sources) > 0 {
-				src := channel.Sources[0]
-				if src != "" && src != "disabled" {
-					connections[src] = fmt.Sprintf("jamcapture_%s:input_1", channel.Name)
-				}
+		count := len(channel.Sources)
+		if count > 2 {
+			count = 2
+		}
+		if count == 0 {
+			globalIdx++
+			continue
+		}
+		for i := 0; i < count; i++ {
+			if i >= len(channel.Sources) {
+				globalIdx++
+				break
 			}
-		} else {
-			for i, src := range channel.Sources {
-				if i >= 2 {
-					break
-				}
-				if src == "" || src == "disabled" {
-					continue
-				}
-				connections[src] = fmt.Sprintf("jamcapture_%s:input_%d", channel.Name, i+1)
+			src := channel.Sources[i]
+			if src != "" && src != "disabled" {
+				connections[src] = fmt.Sprintf("jamcapture_rec:input_%d", globalIdx)
 			}
+			globalIdx++
 		}
 	}
 	return connections
