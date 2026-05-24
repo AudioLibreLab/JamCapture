@@ -178,11 +178,11 @@ func TestGenerateConfigXR18WithChrome(t *testing.T) {
 	if _, ok := root.Configs["xr18_studio"]; !ok {
 		t.Error("expected xr18_studio profile")
 	}
-	if _, ok := root.Configs["xr18_with_monitor"]; !ok {
-		t.Error("expected xr18_with_monitor profile")
+	if _, ok := root.Configs["xr18_chrome"]; !ok {
+		t.Error("expected xr18_chrome profile")
 	}
-	if root.ActiveConfig != "xr18_with_monitor" {
-		t.Errorf("expected active_config=xr18_with_monitor, got %s", root.ActiveConfig)
+	if root.ActiveConfig != "xr18_studio" {
+		t.Errorf("expected active_config=xr18_studio, got %s", root.ActiveConfig)
 	}
 
 	// chrome_stereo definition must have 2 sources

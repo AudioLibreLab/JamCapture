@@ -206,6 +206,7 @@ func runInitHardware(dest string) error {
 	if root == nil {
 		return fmt.Errorf("no audio sources detected — is PipeWire running and any device connected?")
 	}
+	config.AddDefaultBrowserToStudioProfiles(root)
 
 	names := make([]string, 0, len(root.Configs))
 	for name := range root.Configs {
@@ -288,7 +289,7 @@ func runInitSoftware(dest string, noWait bool, timeout time.Duration, profileFil
 		return nil
 	}
 
-	var newRefs []config.ChannelReference
+	var newSources []config.SoftwareSourceTemplate
 	for _, sw := range accumulated {
 		if existing[sw.ID] {
 			fmt.Printf("  Déjà présent : %s\n", sw.AppName)
@@ -307,12 +308,12 @@ func runInitSoftware(dest string, noWait bool, timeout time.Duration, profileFil
 			Volume:    sw.Volume,
 			Delay:     sw.Delay,
 		})
-		newRefs = append(newRefs, config.ChannelReference{Ref: sw.ID})
+		newSources = append(newSources, sw)
 		fmt.Printf("  Ajouté : %s (%s)\n", sw.AppName, sw.AudioMode)
 	}
 
-	if len(newRefs) > 0 {
-		updateWithMonitorProfiles(root, newRefs, profileFilter)
+	if len(newSources) > 0 {
+		updateWithPlayerProfiles(root, newSources, profileFilter)
 	}
 
 	data, err := yaml.Marshal(root)
@@ -329,17 +330,19 @@ func runInitSoftware(dest string, noWait bool, timeout time.Duration, profileFil
 	return nil
 }
 
-// updateWithMonitorProfiles creates or updates _with_monitor profiles with the new software refs.
-// If profileFilter is set, only that profile's _with_monitor variant is updated.
-func updateWithMonitorProfiles(root *config.RootConfig, newRefs []config.ChannelReference, profileFilter string) {
+// updateWithPlayerProfiles creates or updates per-player profiles ({prefix}_{sw.Name})
+// for each new software source. If profileFilter is set, only that _studio profile is used as base.
+func updateWithPlayerProfiles(root *config.RootConfig, newSources []config.SoftwareSourceTemplate, profileFilter string) {
 	if profileFilter != "" {
 		base, ok := root.Configs[profileFilter]
 		if !ok {
 			fmt.Printf("  Profil '%s' introuvable, aucun profil mis à jour.\n", profileFilter)
 			return
 		}
-		monitorName := strings.TrimSuffix(profileFilter, "_studio") + "_with_monitor"
-		updateOrCreateMonitorProfile(root, monitorName, base.Channels, newRefs)
+		prefix := strings.TrimSuffix(profileFilter, "_studio")
+		for _, sw := range newSources {
+			updateOrCreatePlayerProfile(root, prefix+"_"+sw.Name, base.Channels, config.ChannelReference{Ref: sw.ID})
+		}
 		return
 	}
 
@@ -347,31 +350,30 @@ func updateWithMonitorProfiles(root *config.RootConfig, newRefs []config.Channel
 		if !strings.HasSuffix(name, "_studio") {
 			continue
 		}
-		monitorName := strings.TrimSuffix(name, "_studio") + "_with_monitor"
-		updateOrCreateMonitorProfile(root, monitorName, profile.Channels, newRefs)
+		prefix := strings.TrimSuffix(name, "_studio")
+		for _, sw := range newSources {
+			updateOrCreatePlayerProfile(root, prefix+"_"+sw.Name, profile.Channels, config.ChannelReference{Ref: sw.ID})
+		}
 	}
 }
 
-func updateOrCreateMonitorProfile(root *config.RootConfig, monitorName string, baseChannels []config.ChannelReference, newRefs []config.ChannelReference) {
-	if existing, ok := root.Configs[monitorName]; ok {
-		existingSet := make(map[string]bool)
+func updateOrCreatePlayerProfile(root *config.RootConfig, profileName string, baseChannels []config.ChannelReference, newRef config.ChannelReference) {
+	if existing, ok := root.Configs[profileName]; ok {
 		for _, r := range existing.Channels {
-			existingSet[r.Ref] = true
-		}
-		for _, r := range newRefs {
-			if !existingSet[r.Ref] {
-				existing.Channels = append(existing.Channels, r)
+			if r.Ref == newRef.Ref {
+				return
 			}
 		}
+		existing.Channels = append(existing.Channels, newRef)
 	} else {
-		refs := append(append([]config.ChannelReference{}, baseChannels...), newRefs...)
-		root.Configs[monitorName] = &config.ConfigProfile{
+		refs := append(append([]config.ChannelReference{}, baseChannels...), newRef)
+		root.Configs[profileName] = &config.ConfigProfile{
 			AutoMix:  true,
 			Channels: refs,
 			Output:   config.OutputConfig{Format: "flac"},
 		}
 	}
-	fmt.Printf("  Profil mis à jour : %s\n", monitorName)
+	fmt.Printf("  Profil mis à jour : %s\n", profileName)
 }
 
 // loadOrCreateRoot loads an existing config file, or returns a minimal skeleton if none exists.

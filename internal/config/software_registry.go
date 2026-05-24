@@ -1,6 +1,9 @@
 package config
 
-import "strings"
+import (
+	"os/exec"
+	"strings"
+)
 
 // SoftwareSourceTemplate describes a well-known software audio source.
 // PortFL and PortFR are the exact JACK port names the app produces when running.
@@ -30,6 +33,40 @@ var WellKnownSoftwareSources = []SoftwareSourceTemplate{
 	// Media players
 	{ID: "vlc_stereo", Name: "vlc", AppName: "VLC", PortFL: "VLC media player:output_FL", PortFR: "VLC media player:output_FR", AudioMode: "stereo", Type: "software", Volume: 0.8},
 	{ID: "spotify_stereo", Name: "spotify", AppName: "Spotify", PortFL: "spotify:output_FL", PortFR: "spotify:output_FR", AudioMode: "stereo", Type: "software", Volume: 0.8},
+}
+
+// browserDesktopToSoftwareID maps a .desktop file basename (lowercase, no extension)
+// to the corresponding WellKnownSoftwareSources ID.
+var browserDesktopToSoftwareID = map[string]string{
+	"google-chrome":    "chrome_stereo",
+	"chromium":         "chromium_stereo",
+	"chromium-browser": "chromium_stereo",
+	"brave-browser":    "brave_stereo",
+	"brave":            "brave_stereo",
+	"firefox":          "firefox_stereo",
+	"microsoft-edge":   "edge_stereo",
+	"opera":            "opera_stereo",
+}
+
+// DetectDefaultBrowserTemplate returns the WellKnownSoftwareSources entry for the
+// system's default web browser (via xdg-settings), or nil if unknown/undetectable.
+func DetectDefaultBrowserTemplate() *SoftwareSourceTemplate {
+	out, err := exec.Command("xdg-settings", "get", "default-web-browser").Output()
+	if err != nil || len(out) == 0 {
+		return nil
+	}
+	desktop := strings.ToLower(strings.TrimSpace(string(out)))
+	desktop = strings.TrimSuffix(desktop, ".desktop")
+	swID, ok := browserDesktopToSoftwareID[desktop]
+	if !ok {
+		return nil
+	}
+	for i := range WellKnownSoftwareSources {
+		if WellKnownSoftwareSources[i].ID == swID {
+			return &WellKnownSoftwareSources[i]
+		}
+	}
+	return nil
 }
 
 // GenericSoftwareSources returns SoftwareSourceTemplate entries for software audio sources

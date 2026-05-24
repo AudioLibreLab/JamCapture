@@ -199,16 +199,16 @@ func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, 
 		})
 	}
 
-	// _with_monitor profiles (hardware + active software sources)
-	if len(swRefs) > 0 {
+	// per-player profiles (hardware + one software source each)
+	for _, sw := range running {
 		for _, dev := range devices {
 			prefix := dev.Template.ProfilePrefix
 			studio, ok := profiles[prefix+"_studio"]
 			if !ok {
 				continue
 			}
-			refs := append(append([]ChannelReference{}, studio.Channels...), swRefs...)
-			profiles[prefix+"_with_monitor"] = &ConfigProfile{
+			refs := append(append([]ChannelReference{}, studio.Channels...), ChannelReference{Ref: sw.ID})
+			profiles[prefix+"_"+sw.Name] = &ConfigProfile{
 				AutoMix:  true,
 				Channels: refs,
 				Output:   OutputConfig{Format: "flac"},
@@ -272,21 +272,91 @@ func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, 
 	}
 }
 
-func selectActiveConfig(devices []DetectedDevice, running []SoftwareSourceTemplate) string {
+func selectActiveConfig(devices []DetectedDevice, _ []SoftwareSourceTemplate) string {
 	if len(devices) > 0 {
-		if len(running) > 0 {
-			return devices[0].Template.ProfilePrefix + "_with_monitor"
-		}
 		return devices[0].Template.ProfilePrefix + "_studio"
 	}
 	return "default"
 }
 
 func detectAudioPlayer() string {
-	for _, app := range []string{"audacity", "vlc", "rhythmbox", "xdg-open"} {
+	if player := xdgDefaultAudioApp(); player != "" {
+		return player
+	}
+	for _, app := range []string{"vlc", "rhythmbox", "xdg-open"} {
 		if _, err := exec.LookPath(app); err == nil {
 			return app
 		}
 	}
 	return ""
+}
+
+func xdgDefaultAudioApp() string {
+	for _, mimeType := range []string{"audio/mpeg", "audio/flac", "audio/x-wav"} {
+		out, err := exec.Command("xdg-mime", "query", "default", mimeType).Output()
+		if err != nil || len(out) == 0 {
+			continue
+		}
+		binary := strings.TrimSuffix(strings.TrimSpace(string(out)), ".desktop")
+		if binary == "" {
+			continue
+		}
+		if _, err := exec.LookPath(binary); err == nil {
+			return binary
+		}
+	}
+	return ""
+}
+
+// AddDefaultBrowserToStudioProfiles detects the system default browser and adds
+// it as a software channel to all *_studio profiles in root (if not already present).
+func AddDefaultBrowserToStudioProfiles(root *RootConfig) {
+	if root == nil {
+		return
+	}
+	browser := DetectDefaultBrowserTemplate()
+	if browser == nil {
+		return
+	}
+	if root.Definitions == nil {
+		root.Definitions = &DefinitionsConfig{}
+	}
+	// Add channel definition if absent
+	for _, ch := range root.Definitions.Channels {
+		if ch.ID == browser.ID {
+			goto addRefs
+		}
+	}
+	{
+		sources := []string{browser.PortFL}
+		if browser.AudioMode == "stereo" && browser.PortFR != "" {
+			sources = []string{browser.PortFL, browser.PortFR}
+		}
+		root.Definitions.Channels = append(root.Definitions.Channels, ChannelDefinition{
+			ID:        browser.ID,
+			Name:      browser.Name,
+			Sources:   sources,
+			AudioMode: browser.AudioMode,
+			Type:      "software",
+			Volume:    browser.Volume,
+			Delay:     browser.Delay,
+		})
+	}
+addRefs:
+	ref := ChannelReference{Ref: browser.ID}
+	for name, profile := range root.Configs {
+		if !strings.HasSuffix(name, "_studio") {
+			continue
+		}
+		found := false
+		for _, r := range profile.Channels {
+			if r.Ref == browser.ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			profile.Channels = append(profile.Channels, ref)
+		}
+	}
 }
