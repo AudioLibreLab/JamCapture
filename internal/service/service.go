@@ -431,11 +431,70 @@ func (s *JamCaptureService) updateLastMixedFile(filename string) error {
 	return nil
 }
 
-// GetLastMixedFile returns the last mixed file from configuration
+// GetLastMixedFile returns the last mixed file. Falls back to scanning the
+// recordings directory when no file has been mixed in the current session.
 func (s *JamCaptureService) GetLastMixedFile() string {
 	s.configMutex.RLock()
-	defer s.configMutex.RUnlock()
-	return s.cfg.Output.LastMixedFile
+	cached := s.cfg.Output.LastMixedFile
+	dir := s.cfg.Output.Directory
+	s.configMutex.RUnlock()
+
+	if cached != "" {
+		return cached
+	}
+
+	if strings.HasPrefix(dir, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			dir = filepath.Join(home, dir[2:])
+		}
+	}
+	if dir == "" {
+		return ""
+	}
+	latest, err := latestAudioFile(dir)
+	if err != nil {
+		return ""
+	}
+	return latest
+}
+
+// latestAudioFile returns the path of the most recently modified audio file
+// (flac/wav/mp3 preferred over mkv) in dir, or an error if none found.
+func latestAudioFile(dir string) (string, error) {
+	priorityExts := []string{".flac", ".wav", ".mp3"}
+	fallbackExts := []string{".mkv"}
+	allExts := append(priorityExts, fallbackExts...)
+
+	var latestFile string
+	var latestTime time.Time
+	var latestPriority = len(allExts)
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil || info.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		priority := -1
+		for i, e := range allExts {
+			if ext == e {
+				priority = i
+				break
+			}
+		}
+		if priority == -1 {
+			return nil
+		}
+		if priority < latestPriority || (priority == latestPriority && info.ModTime().After(latestTime)) || latestFile == "" {
+			latestTime = info.ModTime()
+			latestFile = path
+			latestPriority = priority
+		}
+		return nil
+	})
+	if err != nil || latestFile == "" {
+		return "", fmt.Errorf("no audio files found in %s", dir)
+	}
+	return latestFile, nil
 }
 
 func (s *JamCaptureService) getOutputExtension() string {
