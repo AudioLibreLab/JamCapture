@@ -287,7 +287,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/mix/analyze/", s.handleMixAnalyze)
 	mux.HandleFunc("/api/mix/render", s.handleMixRender)
 	mux.HandleFunc("/api/mix/stream/", s.handleMixStream)
-	mux.HandleFunc("/api/mix/last-mixed", s.handleLastMixed)
+	mux.HandleFunc("/api/mix/latest-mixed", s.handleLatestMixed)
 
 	// Get local IP address
 	localIP := getLocalIP()
@@ -2967,24 +2967,23 @@ func (s *Server) handleMixStream(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filePath)
 }
 
-// handleLastMixed returns information about the last mixed file
-func (s *Server) handleLastMixed(w http.ResponseWriter, r *http.Request) {
+// handleLatestMixed returns information about the latest mixed file
+func (s *Server) handleLatestMixed(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	lastMixed := s.service.GetLastMixedFile()
+	latestMixed := s.service.GetLatestMixedFile()
 
 	response := map[string]interface{}{
-		"success": true,
-		"last_mixed_file": lastMixed,
+		"success":          true,
+		"latest_mixed_file": latestMixed,
 	}
 
-	// If we have a last mixed file, check if it exists and get its info
-	if lastMixed != "" {
+	if latestMixed != "" {
 		recordingDir := s.cfg.Output.Directory
-		filePath := filepath.Join(recordingDir, lastMixed)
+		filePath := filepath.Join(recordingDir, latestMixed)
 
 		if stat, err := os.Stat(filePath); err == nil {
 			response["exists"] = true
@@ -3000,7 +2999,7 @@ func (s *Server) handleLastMixed(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		slog.Error("Failed to encode last mixed response", "error", err)
+		slog.Error("Failed to encode latest mixed response", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }

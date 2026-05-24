@@ -1126,7 +1126,7 @@
                 <!-- Audio Player Container -->
                 <div class="audio-player-container">
                     <div id="player-status" class="player-status">
-                        Loading last recording...
+                        Loading latest recording...
                     </div>
                     <audio id="audio-player" class="custom-audio-player hidden" controls preload="metadata">
                         Your browser does not support the audio element.
@@ -2098,7 +2098,7 @@
                         // Add debugging event listeners for remote files too
                         audioPlayer.addEventListener('loadedmetadata', function() {
                             console.log('Remote file metadata loaded:', data.file_name);
-                            updatePlayerStatus('Last recording loaded successfully');
+                            updatePlayerStatus('Latest recording loaded successfully');
                             clearAudioError();
                         }, { once: true });
 

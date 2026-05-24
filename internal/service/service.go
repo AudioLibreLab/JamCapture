@@ -65,7 +65,7 @@ type Service interface {
 	AnalyzeMKVFile(filename string) (*MKVAnalysis, error)
 	MixWithTrackVolumes(filename string, trackVolumes map[string]float64) error
 	MixWithTrackAndGlobalVolumes(filename string, trackVolumes map[string]float64, globalVolume float64) error
-	GetLastMixedFile() string
+	GetLatestMixedFile() string
 }
 
 // RecordingStatus represents the current recording state
@@ -431,17 +431,13 @@ func (s *JamCaptureService) updateLastMixedFile(filename string) error {
 	return nil
 }
 
-// GetLastMixedFile returns the last mixed file. Falls back to scanning the
-// recordings directory when no file has been mixed in the current session.
-func (s *JamCaptureService) GetLastMixedFile() string {
+// GetLatestMixedFile scans the recordings directory and returns the basename of
+// the most recently modified audio file. Always scans so it reflects recordings
+// made via the web GUI or any other client since the last restart.
+func (s *JamCaptureService) GetLatestMixedFile() string {
 	s.configMutex.RLock()
-	cached := s.cfg.Output.LastMixedFile
 	dir := s.cfg.Output.Directory
 	s.configMutex.RUnlock()
-
-	if cached != "" {
-		return cached
-	}
 
 	if strings.HasPrefix(dir, "~/") {
 		if home, err := os.UserHomeDir(); err == nil {
@@ -455,7 +451,7 @@ func (s *JamCaptureService) GetLastMixedFile() string {
 	if err != nil {
 		return ""
 	}
-	return latest
+	return filepath.Base(latest)
 }
 
 // latestAudioFile returns the path of the most recently modified audio file

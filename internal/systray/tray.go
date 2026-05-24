@@ -27,7 +27,7 @@ type SystemTray struct {
 	menuStop     *systray.MenuItem
 	menuWebUI    *systray.MenuItem
 	menuStatus   *systray.MenuItem
-	menuPlayLast *systray.MenuItem
+	menuPlayLatest *systray.MenuItem
 	menuQuit     *systray.MenuItem
 
 	// Context for cleanup
@@ -90,7 +90,7 @@ func (st *SystemTray) setupMenu() {
 
 	systray.AddSeparator()
 
-	st.menuPlayLast = systray.AddMenuItem("🎵 Play Last", "Play last recording with default audio player")
+	st.menuPlayLatest = systray.AddMenuItem("🎵 Play Latest", "Play latest recording with default audio player")
 
 	systray.AddSeparator()
 	st.menuQuit = systray.AddMenuItem("❌ Quit", "Quit JamCapture")
@@ -112,8 +112,8 @@ func (st *SystemTray) handleMenuEvents() {
 		case <-st.menuWebUI.ClickedCh:
 			st.handleWebUI()
 
-		case <-st.menuPlayLast.ClickedCh:
-			st.handlePlayLast()
+		case <-st.menuPlayLatest.ClickedCh:
+			st.handlePlayLatest()
 
 		case <-st.menuQuit.ClickedCh:
 			st.handleQuit()
@@ -181,16 +181,15 @@ func (st *SystemTray) handleWebUI() {
 	}
 }
 
-// handlePlayLast plays the last recorded file with the default audio player
-func (st *SystemTray) handlePlayLast() {
-	// Get the last mixed file from the service
-	lastFile := st.service.GetLastMixedFile()
+// handlePlayLatest plays the latest recorded file with the default audio player
+func (st *SystemTray) handlePlayLatest() {
+	lastFile := st.service.GetLatestMixedFile()
 	if lastFile == "" {
 		st.showNotification("No Recording", "No recording available to play")
 		return
 	}
 
-	slog.Info("Playing last recording", "file", lastFile)
+	slog.Info("Playing latest recording", "file", lastFile)
 
 	// Create a player and play the file
 	// Extract song name from the file (remove extension)

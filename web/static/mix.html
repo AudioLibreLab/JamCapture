@@ -586,7 +586,7 @@
                 <!-- Audio Player Container -->
                 <div class="audio-player-container">
                     <div id="player-status" class="player-status">
-                        Loading last mixed file...
+                        Loading latest mixed file...
                     </div>
                     <audio id="audio-player" class="custom-audio-player hidden" controls preload="metadata">
                         Your browser does not support the audio element.
@@ -692,20 +692,20 @@
             setupMKVEventListeners();
         });
 
-        // Load last mixed file and set up player
+        // Load latest mixed file and set up player
         function loadLastMixedFile() {
-            fetch('/api/mix/last-mixed')
+            fetch('/api/mix/latest-mixed')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success && data.last_mixed_file && data.exists) {
-                        setupAudioPlayer(data.last_mixed_file, data);
+                    if (data.success && data.latest_mixed_file && data.exists) {
+                        setupAudioPlayer(data.latest_mixed_file, data);
                     } else {
                         document.getElementById('player-status').textContent = 'No recent mixes found';
                     }
                 })
                 .catch(error => {
-                    console.error('Failed to load last mixed file:', error);
-                    document.getElementById('player-status').textContent = 'Error loading last mix';
+                    console.error('Failed to load latest mixed file:', error);
+                    document.getElementById('player-status').textContent = 'Error loading latest mix';
                 });
         }
 
