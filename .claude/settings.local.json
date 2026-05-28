@@ -139,7 +139,8 @@
       "Bash(gh run *)",
       "Bash(xargs ls -la)",
       "Bash(docker run *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(pw-dump)"
     ],
     "deny": [],
     "ask": []

@@ -156,6 +156,11 @@ func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, 
 				Channels: deviceRefs,
 				Output:   OutputConfig{Format: "flac"},
 			}
+			profiles[dev.Template.ProfilePrefix+"_hardware"] = &ConfigProfile{
+				AutoMix:  true,
+				Channels: append([]ChannelReference{}, deviceRefs...),
+				Output:   OutputConfig{Format: "flac"},
+			}
 		}
 	}
 
@@ -197,23 +202,6 @@ func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, 
 			Type:      "hardware",
 			Volume:    4.0,
 		})
-	}
-
-	// per-player profiles (hardware + one software source each)
-	for _, sw := range running {
-		for _, dev := range devices {
-			prefix := dev.Template.ProfilePrefix
-			studio, ok := profiles[prefix+"_studio"]
-			if !ok {
-				continue
-			}
-			refs := append(append([]ChannelReference{}, studio.Channels...), ChannelReference{Ref: sw.ID})
-			profiles[prefix+"_"+sw.Name] = &ConfigProfile{
-				AutoMix:  true,
-				Channels: refs,
-				Output:   OutputConfig{Format: "flac"},
-			}
-		}
 	}
 
 	// all_devices profile when multiple hardware devices are present
