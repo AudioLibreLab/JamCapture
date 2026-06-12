@@ -194,6 +194,12 @@ See `examples/pipewire.yaml` for a multi-profile configuration example.
 - **Backing Tracks**: Upload and play along functionality
 - **Mobile-optimized**: Responsive design with dark/light themes
 
+### Keyboard Shortcuts
+
+| Key | Action |
+| --- | --- |
+| `Space` | Start / stop recording (when no input field is focused) |
+
 ## Profile System
 
 JamCapture supports multiple recording profiles managed through the web interface:
