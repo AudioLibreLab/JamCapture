@@ -174,33 +174,3 @@ func ensureValidConfig(configPath string) error {
 	fmt.Printf("Config written to %s — edit it to customise volumes and profiles.\n", configPath)
 	return nil
 }
-
-// startWebServer starts the web server in the background
-func startWebServer(ctx context.Context, configFile string, port int) error {
-	portStr := fmt.Sprintf("%d", port)
-
-	srv, err := server.New(configFile, portStr)
-	if err != nil {
-		return fmt.Errorf("failed to create server: %w", err)
-	}
-
-	// Start server in goroutine
-	serverErr := make(chan error, 1)
-	go func() {
-		slog.Info("Starting web server", "port", port)
-		if err := srv.Start(); err != nil {
-			serverErr <- err
-		}
-	}()
-
-	// Wait for context cancellation or server error
-	select {
-	case <-ctx.Done():
-		slog.Info("Shutting down web server")
-		return nil
-
-	case err := <-serverErr:
-		return err
-	}
-}
-
