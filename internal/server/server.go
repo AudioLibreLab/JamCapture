@@ -1451,6 +1451,18 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+// isPathWithinDir reports whether path is dir itself or a descendant of dir.
+// Both arguments must already be cleaned, absolute paths. Unlike a plain
+// strings.HasPrefix check, this is not fooled by sibling directories that
+// share a name prefix (e.g. dir "/a/Backing" and path "/a/BackingEvil/x").
+func isPathWithinDir(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) && !filepath.IsAbs(rel))
+}
+
 // handleCreateConfig creates a new configuration profile
 func (s *Server) handleCreateConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -1767,7 +1779,7 @@ func (s *Server) handleRecordingStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !strings.HasPrefix(cleanPath, cleanOutputDir) {
+	if !isPathWithinDir(cleanPath, cleanOutputDir) {
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -2127,7 +2139,7 @@ func (s *Server) handleBackingtrackStream(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if !strings.HasPrefix(cleanPath, cleanTempDir) {
+	if !isPathWithinDir(cleanPath, cleanTempDir) {
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -2400,7 +2412,7 @@ func (s *Server) handleBackingtrackStreamNew(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if !strings.HasPrefix(cleanPath, cleanBackingDir) {
+	if !isPathWithinDir(cleanPath, cleanBackingDir) {
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -2928,7 +2940,7 @@ func (s *Server) handleMixStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !strings.HasPrefix(cleanPath, cleanRecordingDir) {
+	if !isPathWithinDir(cleanPath, cleanRecordingDir) {
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}

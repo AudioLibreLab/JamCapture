@@ -400,6 +400,15 @@ func cleanFileName(name string) string {
 	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
 }
 
+// validateSafeFilename rejects filenames that could escape their base directory
+// via path traversal (e.g. "..", "/", "\\").
+func validateSafeFilename(name string) error {
+	if strings.Contains(name, "..") || strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return fmt.Errorf("invalid filename: %s", name)
+	}
+	return nil
+}
+
 // validateFileName checks if a filename contains only allowed characters
 // Returns an error message if invalid, empty string if valid
 func validateFileName(name string) string {
@@ -610,6 +619,10 @@ func (s *JamCaptureService) GetSelectedBackingtrack() (*BackingtrackInfo, error)
 
 // SetSelectedBackingtrack sets the selected backing track
 func (s *JamCaptureService) SetSelectedBackingtrack(name string) error {
+	if err := validateSafeFilename(name); err != nil {
+		return err
+	}
+
 	s.backingtrackMutex.Lock()
 	defer s.backingtrackMutex.Unlock()
 
@@ -632,6 +645,10 @@ func (s *JamCaptureService) SetSelectedBackingtrack(name string) error {
 
 // ConvertRecordingToBackingtrack moves a recording file to the backingtracks directory
 func (s *JamCaptureService) ConvertRecordingToBackingtrack(recordingName string) error {
+	if err := validateSafeFilename(recordingName); err != nil {
+		return err
+	}
+
 	s.backingtrackMutex.Lock()
 	defer s.backingtrackMutex.Unlock()
 
@@ -802,6 +819,10 @@ func (s *JamCaptureService) ListMKVFiles() ([]MKVFileInfo, error) {
 
 // AnalyzeMKVFile extracts track information from an MKV file using ffprobe
 func (s *JamCaptureService) AnalyzeMKVFile(filename string) (*MKVAnalysis, error) {
+	if err := validateSafeFilename(filename); err != nil {
+		return nil, err
+	}
+
 	// Look for MKV files in the recordings directory where they are created
 	recordingDir := s.cfg.Output.Directory
 	filePath := filepath.Join(recordingDir, filename)
