@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/audiolibrelab/jamcapture/internal/config"
+	"github.com/audiolibrelab/jamcapture/internal/util"
 )
 
 // PipeWireRecorder implements the Recorder interface using PipeWire/JACK
@@ -81,7 +82,7 @@ func (r *PipeWireRecorder) StartReady(songName string) error {
 	}
 
 	// Prepare session info
-	cleanName := r.cleanFileName(songName)
+	cleanName := util.CleanFileName(songName)
 	outputFile := filepath.Join(r.cfg.Output.Directory, cleanName+".mkv")
 
 	enabledChannels := r.cfg.Channels
@@ -800,14 +801,3 @@ func (r *PipeWireRecorder) waitForSpecificPort(portName string, timeout time.Dur
 	return fmt.Errorf("timeout waiting for JACK port: %s", portName)
 }
 
-// cleanFileName sanitizes a filename
-// Allows: letters, numbers, spaces, hyphens, underscores
-func (r *PipeWireRecorder) cleanFileName(name string) string {
-	var result strings.Builder
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
-			result.WriteRune(r)
-		}
-	}
-	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
-}

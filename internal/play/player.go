@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/audiolibrelab/jamcapture/internal/config"
+	"github.com/audiolibrelab/jamcapture/internal/util"
 )
 
 type Player struct {
@@ -26,7 +27,7 @@ var nonBlockingPlayers = map[string]bool{
 }
 
 func (p *Player) Play(songName string) error {
-	cleanName := p.cleanFileName(songName)
+	cleanName := util.CleanFileName(songName)
 	audioFile := filepath.Join(p.cfg.Output.Directory, cleanName+"."+p.cfg.Output.Format)
 
 	if _, err := os.Stat(audioFile); err != nil {
@@ -102,14 +103,3 @@ func (p *Player) buildCommand(player, audioFile string) *exec.Cmd {
 	}
 }
 
-func (p *Player) cleanFileName(name string) string {
-	// Remove special characters and replace spaces with underscores
-	// Allows: letters, numbers, spaces, hyphens, underscores
-	var result strings.Builder
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
-			result.WriteRune(r)
-		}
-	}
-	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
-}

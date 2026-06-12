@@ -235,6 +235,15 @@ func (c *Config) Save() error {
 	return viper.WriteConfig()
 }
 
+// BackingtracksDir returns the resolved backing tracks directory path,
+// falling back to a "BackingTracks" subdirectory of the output directory.
+func (c *Config) BackingtracksDir() string {
+	if c.Output.BackingtracksDirectory != "" {
+		return c.Output.BackingtracksDirectory
+	}
+	return filepath.Join(c.Output.Directory, "BackingTracks")
+}
+
 // UpdateActiveConfig updates the active_config field in the config file
 func UpdateActiveConfig(configFile, newActiveConfig string) error {
 	if configFile == "" {

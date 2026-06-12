@@ -1,12 +1,10 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,6 +15,7 @@ import (
 	"github.com/audiolibrelab/jamcapture/internal/config"
 	"github.com/audiolibrelab/jamcapture/internal/mix"
 	"github.com/audiolibrelab/jamcapture/internal/play"
+	"github.com/audiolibrelab/jamcapture/internal/util"
 	"gopkg.in/yaml.v3"
 )
 
@@ -121,19 +120,10 @@ type MKVFileInfo struct {
 }
 
 // MKVAnalysis contains track information extracted from an MKV file
-type MKVAnalysis struct {
-	Filename    string      `json:"filename"`
-	TrackCount  int         `json:"track_count"`
-	Tracks      []TrackInfo `json:"tracks"`
-}
+type MKVAnalysis = config.MKVAnalysis
 
 // TrackInfo contains information about a single track within an MKV file
-type TrackInfo struct {
-	Index    int    `json:"index"`
-	Name     string `json:"name"`
-	Title    string `json:"title"`
-	Channels int    `json:"channels"`
-}
+type TrackInfo = config.TrackInfo
 
 // MixOptions contains mixing configuration
 type MixOptions struct {
@@ -371,7 +361,7 @@ func (s *JamCaptureService) GetConfig() *config.Config {
 func (s *JamCaptureService) GetSongInfo(songName string) (*SongInfo, error) {
 	// This is a simplified implementation - you might want to move
 	// the actual path resolution logic from cmd/info.go here
-	cleanName := cleanFileName(songName)
+	cleanName := util.CleanFileName(songName)
 
 	return &SongInfo{
 		OutputMKV:   fmt.Sprintf("%s/%s.mkv", s.cfg.Output.Directory, cleanName),
@@ -387,18 +377,6 @@ func (s *JamCaptureService) GetChannelStatus() map[string]string {
 
 
 // Helper functions
-
-func cleanFileName(name string) string {
-	// Remove special characters and replace spaces with underscores
-	// Allows: letters, numbers, spaces, hyphens, underscores
-	var result strings.Builder
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
-			result.WriteRune(r)
-		}
-	}
-	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
-}
 
 // validateSafeFilename rejects filenames that could escape their base directory
 // via path traversal (e.g. "..", "/", "\\").
@@ -519,11 +497,7 @@ func (s *JamCaptureService) getOutputExtension() string {
 
 // getBackingtracksDirectory returns the resolved backing tracks directory path
 func (s *JamCaptureService) getBackingtracksDirectory() string {
-	backingDir := s.cfg.Output.BackingtracksDirectory
-	if backingDir == "" {
-		backingDir = filepath.Join(s.cfg.Output.Directory, "BackingTracks")
-	}
-	return backingDir
+	return s.cfg.BackingtracksDir()
 }
 
 // ListBackingtracks returns all backing tracks in the backingtracks directory
@@ -575,7 +549,7 @@ func (s *JamCaptureService) ListBackingtracks() ([]BackingtrackInfo, error) {
 			Name:         file.Name(),
 			Path:         filePath,
 			Size:         info.Size(),
-			SizeHuman:    formatBytes(info.Size()),
+			SizeHuman:    util.FormatBytes(info.Size()),
 			ModTime:      info.ModTime(),
 			ModTimeHuman: info.ModTime().Format("2006-01-02 15:04:05"),
 			Extension:    strings.TrimPrefix(ext, "."),
@@ -799,7 +773,7 @@ func (s *JamCaptureService) ListMKVFiles() ([]MKVFileInfo, error) {
 			Name:         file.Name(),
 			Path:         filePath,
 			Size:         info.Size(),
-			SizeHuman:    formatBytes(info.Size()),
+			SizeHuman:    util.FormatBytes(info.Size()),
 			ModTime:      info.ModTime(),
 			ModTimeHuman: info.ModTime().Format("2006-01-02 15:04:05"),
 			StreamURL:    fmt.Sprintf("/api/backingtracks/stream/%s", file.Name()),
@@ -827,71 +801,7 @@ func (s *JamCaptureService) AnalyzeMKVFile(filename string) (*MKVAnalysis, error
 	recordingDir := s.cfg.Output.Directory
 	filePath := filepath.Join(recordingDir, filename)
 
-	// Validate file exists
-	if _, err := os.Stat(filePath); err != nil {
-		return nil, fmt.Errorf("MKV file not found: %s", filename)
-	}
-
-	// Use ffprobe to extract stream information
-	cmd := exec.Command("ffprobe",
-		"-v", "quiet",
-		"-print_format", "json",
-		"-show_streams",
-		filePath,
-	)
-
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("ffprobe failed for %s: %w", filename, err)
-	}
-
-	// Parse ffprobe output
-	var probeResult struct {
-		Streams []struct {
-			Index       int               `json:"index"`
-			CodecType   string            `json:"codec_type"`
-			Channels    int               `json:"channels"`
-			Tags        map[string]string `json:"tags"`
-		} `json:"streams"`
-	}
-
-	if err := json.Unmarshal(output, &probeResult); err != nil {
-		return nil, fmt.Errorf("failed to parse ffprobe output for %s: %w", filename, err)
-	}
-
-	// Extract audio tracks only
-	var tracks []TrackInfo
-	for _, stream := range probeResult.Streams {
-		if stream.CodecType != "audio" {
-			continue
-		}
-
-		// Extract title from metadata, fallback to index-based name
-		title := fmt.Sprintf("Track %d", stream.Index)
-		if streamTitle, exists := stream.Tags["title"]; exists && streamTitle != "" {
-			title = streamTitle
-		} else if streamTitle, exists := stream.Tags["TITLE"]; exists && streamTitle != "" {
-			title = streamTitle
-		}
-
-		track := TrackInfo{
-			Index:    stream.Index,
-			Name:     fmt.Sprintf("track_%d", stream.Index),
-			Title:    title,
-			Channels: stream.Channels,
-		}
-
-		tracks = append(tracks, track)
-	}
-
-	analysis := &MKVAnalysis{
-		Filename:   filename,
-		TrackCount: len(tracks),
-		Tracks:     tracks,
-	}
-
-	slog.Debug("MKV analysis completed", "filename", filename, "tracks", len(tracks))
-	return analysis, nil
+	return mix.AnalyzeMKVFile(filePath)
 }
 
 // MixWithTrackVolumes creates a custom mix using the specified track volumes
@@ -950,16 +860,3 @@ func (s *JamCaptureService) MixWithTrackAndGlobalVolumes(filename string, trackV
 	return nil
 }
 
-// formatBytes formats bytes in human readable format
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/audiolibrelab/jamcapture/internal/config"
+	"github.com/audiolibrelab/jamcapture/internal/util"
 )
 
 type Mixer struct {
@@ -21,7 +22,7 @@ func New(cfg *config.Config) *Mixer {
 }
 
 func (m *Mixer) Mix(songName string) error {
-	cleanName := m.cleanFileName(songName)
+	cleanName := util.CleanFileName(songName)
 	inputFile := filepath.Join(m.cfg.Output.Directory, cleanName+".mkv")
 	outputFile := filepath.Join(m.cfg.Output.Directory, cleanName+"."+m.cfg.Output.Format)
 
@@ -34,7 +35,7 @@ func (m *Mixer) Mix(songName string) error {
 	os.Remove(outputFile)
 
 	// Analyze the input file to determine available streams
-	analysis, err := m.analyzeMKVFile(inputFile)
+	analysis, err := AnalyzeMKVFile(inputFile)
 	if err != nil {
 		return fmt.Errorf("failed to analyze input file: %w", err)
 	}
@@ -149,7 +150,7 @@ func (m *Mixer) MixWithChannelAndGlobalVolumes(songName string, channelVolumes m
 
 // mixWithGlobalVolume performs the actual mixing with global volume control
 func (m *Mixer) mixWithGlobalVolume(songName string, globalVolume float64) error {
-	cleanName := m.cleanFileName(songName)
+	cleanName := util.CleanFileName(songName)
 
 	// Build file paths
 	inputFile := filepath.Join(m.cfg.Output.Directory, fmt.Sprintf("%s.mkv", cleanName))
@@ -161,7 +162,7 @@ func (m *Mixer) mixWithGlobalVolume(songName string, globalVolume float64) error
 	}
 
 	// Analyze the input file to determine available streams
-	analysis, err := m.analyzeMKVFile(inputFile)
+	analysis, err := AnalyzeMKVFile(inputFile)
 	if err != nil {
 		return fmt.Errorf("failed to analyze input file: %w", err)
 	}
@@ -200,20 +201,8 @@ func (m *Mixer) mixWithGlobalVolume(songName string, globalVolume float64) error
 	return nil
 }
 
-func (m *Mixer) cleanFileName(name string) string {
-	// Remove special characters and replace spaces with underscores
-	// Allows: letters, numbers, spaces, hyphens, underscores
-	var result strings.Builder
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
-			result.WriteRune(r)
-		}
-	}
-	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
-}
-
-// analyzeMKVFile extracts track information from an MKV file using ffprobe
-func (m *Mixer) analyzeMKVFile(filePath string) (*config.MKVAnalysis, error) {
+// AnalyzeMKVFile extracts track information from an MKV file using ffprobe
+func AnalyzeMKVFile(filePath string) (*config.MKVAnalysis, error) {
 	// Validate file exists
 	if _, err := os.Stat(filePath); err != nil {
 		return nil, fmt.Errorf("MKV file not found: %s", filePath)

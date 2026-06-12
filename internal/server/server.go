@@ -19,6 +19,7 @@ import (
 
 	"github.com/audiolibrelab/jamcapture/internal/config"
 	"github.com/audiolibrelab/jamcapture/internal/service"
+	"github.com/audiolibrelab/jamcapture/internal/util"
 	"github.com/spf13/viper"
 )
 
@@ -1108,7 +1109,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Format size in human readable format
-		sizeHuman := formatBytes(info.Size())
+		sizeHuman := util.FormatBytes(info.Size())
 
 		// Format modification time
 		modTimeHuman := info.ModTime().Format("2006-01-02 15:04:05")
@@ -1435,20 +1436,6 @@ func getActiveProfileName(configFile string) string {
 	}
 
 	return rootConfig.ActiveConfig
-}
-
-// formatBytes formats bytes in human readable format
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // isPathWithinDir reports whether path is dir itself or a descendant of dir.
@@ -2636,11 +2623,7 @@ func (s *Server) handleDeleteBackingtrack(w http.ResponseWriter, r *http.Request
 
 // getBackingtracksDirectory returns the resolved backing tracks directory path
 func (s *Server) getBackingtracksDirectory() string {
-	backingDir := s.cfg.Output.BackingtracksDirectory
-	if backingDir == "" {
-		backingDir = filepath.Join(s.cfg.Output.Directory, "BackingTracks")
-	}
-	return backingDir
+	return s.cfg.BackingtracksDir()
 }
 
 // generateStatusMessage creates appropriate status messages based on current state
@@ -3000,7 +2983,7 @@ func (s *Server) handleLatestMixed(w http.ResponseWriter, r *http.Request) {
 		if stat, err := os.Stat(filePath); err == nil {
 			response["exists"] = true
 			response["size"] = stat.Size()
-			response["size_human"] = formatBytes(stat.Size())
+			response["size_human"] = util.FormatBytes(stat.Size())
 			response["mod_time"] = stat.ModTime().Format("2006-01-02 15:04:05")
 		} else {
 			response["exists"] = false

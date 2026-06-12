@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/audiolibrelab/jamcapture/internal/util"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,7 @@ var infoCmd = &cobra.Command{
 		songName := args[0]
 
 		// Clean song name using the same logic as the recorder
-		cleanName := cleanFileName(songName)
+		cleanName := util.CleanFileName(songName)
 
 		// Build file paths
 		mkvPath := filepath.Join(cfg.Output.Directory, cleanName+".mkv")
@@ -64,19 +65,6 @@ var infoCmd = &cobra.Command{
 
 		return nil
 	},
-}
-
-// cleanFileName replicates the logic from the recorder
-func cleanFileName(name string) string {
-	// Remove special characters and replace spaces with underscores
-	// Allows: letters, numbers, spaces, hyphens, underscores
-	var result strings.Builder
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
-			result.WriteRune(r)
-		}
-	}
-	return strings.ReplaceAll(strings.TrimSpace(result.String()), " ", "_")
 }
 
 // getInheritanceIndicator returns a formatted indicator for inheritance status
