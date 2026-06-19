@@ -12,8 +12,9 @@ Ordered by leverage, highest first.
       (`server.go` ~432, ~842). `profileLock` does NOT guard `cfg`.
 - [ ] `service.LoadProfile` reassigns `s.cfg` / `s.recorder` unsynchronized
       (`service.go:350-351`).
-- [ ] `GetChannelStatus` writes `channelStatusCache` under `RLock`
-      (`pipewire_recorder.go:283` → `:329`).
+- [x] `GetChannelStatus` writes `channelStatusCache` under `RLock`
+      (`pipewire_recorder.go:283` → `:329`). Fixed: dedicated `channelStatusMu`;
+      regression test `TestGetChannelStatusConcurrentNoRace`.
 - [ ] `stdoutBuf` / `stderrBuf` written by `readOutput` goroutines, read in
       `stopFFmpeg`, no synchronization.
 - [ ] `Cleanup()` touches `ffmpegCmd` without the mutex.

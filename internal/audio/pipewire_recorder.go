@@ -43,7 +43,10 @@ type PipeWireRecorder struct {
 	sourceMonitorStop chan struct{}
 	sourceMonitorDone chan struct{}
 
-	// Channel status cache
+	// Channel status cache, guarded by its own mutex (not r.mutex) so that
+	// scanning channel status never has to hold the state lock while shelling
+	// out to pw-link.
+	channelStatusMu        sync.RWMutex
 	channelStatusCache     map[string]string
 	channelStatusCacheTime time.Time
 }
@@ -281,12 +284,17 @@ func (r *PipeWireRecorder) GetStatus() (Status, *SessionInfo) {
 // GetChannelStatus returns the availability status of configured channels
 func (r *PipeWireRecorder) GetChannelStatus() map[string]string {
 	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	recording := r.status == StatusRecording
+	r.mutex.RUnlock()
 
-	// If recording, return cached status
-	if r.status == StatusRecording {
-		if r.channelStatusCache != nil {
-			return r.channelStatusCache
+	// While recording, return the cached status rather than re-scanning
+	// (which would shell out to pw-link mid-recording).
+	if recording {
+		r.channelStatusMu.RLock()
+		cache := r.channelStatusCache
+		r.channelStatusMu.RUnlock()
+		if cache != nil {
+			return cache
 		}
 	}
 
@@ -326,8 +334,10 @@ func (r *PipeWireRecorder) scanChannelStatus() map[string]string {
 		}
 	}
 
+	r.channelStatusMu.Lock()
 	r.channelStatusCache = status
 	r.channelStatusCacheTime = time.Now()
+	r.channelStatusMu.Unlock()
 
 	return status
 }
