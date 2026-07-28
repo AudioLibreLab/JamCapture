@@ -237,8 +237,12 @@ func (r *PipeWireRecorder) Stop() error {
 		return err
 	}
 
+	// Drop the session on the way back to STANDBY: leaving it behind makes the
+	// web UI keep displaying the finished take as if it were still running.
+	outputFile := r.session.OutputFile
 	r.status = StatusStandby
-	slog.Debug("PipeWire recording completed successfully", "output", r.session.OutputFile)
+	r.session = nil
+	slog.Debug("PipeWire recording completed successfully", "output", outputFile)
 
 	return nil
 }

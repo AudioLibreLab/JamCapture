@@ -45,9 +45,13 @@ func executePipeline(songName string, startStep rune) error {
 
 		switch step {
 		case 'r':
-			if err := svc.StartReady(songName); err != nil {
+			effectiveName, err := svc.StartReady(songName)
+			if err != nil {
 				return fmt.Errorf("pipeline ready failed: %w", err)
 			}
+			// Follow the rename when the requested name was already taken, so the
+			// later mix/play steps operate on the file we just recorded.
+			songName = effectiveName
 
 			// Wait for user input to stop recording
 			fmt.Println("Pipeline: waiting for sources... Recording will start automatically - Press Enter to stop...")

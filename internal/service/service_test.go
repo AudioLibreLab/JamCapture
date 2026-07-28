@@ -228,3 +228,39 @@ func TestAnalyzeMKVFileRejectsPathTraversal(t *testing.T) {
 		t.Error("expected error for path traversal filename, got nil")
 	}
 }
+
+func TestUniqueSongNameAvoidsOverwritingExistingTakes(t *testing.T) {
+	cfg := newTestConfig(t)
+	jcs := New(cfg, "", nil).(*JamCaptureService)
+
+	writeTake := func(songName string) {
+		t.Helper()
+		path := filepath.Join(cfg.Output.Directory, songName+".mkv")
+		if err := os.WriteFile(path, []byte("take"), 0644); err != nil {
+			t.Fatalf("failed to write %s: %v", path, err)
+		}
+	}
+
+	// Free name: kept as-is.
+	if got := jcs.uniqueSongName("MySong_20260729_005950"); got != "MySong_20260729_005950" {
+		t.Errorf("expected the requested name to be kept, got %q", got)
+	}
+
+	// Name already recorded: must not be reused, FFmpeg records with -y.
+	writeTake("MySong_20260729_005950")
+	if got := jcs.uniqueSongName("MySong_20260729_005950"); got != "MySong_20260729_005950_take2" {
+		t.Errorf("expected _take2 suffix, got %q", got)
+	}
+
+	// Suffixed name already taken too: move on to the next free one.
+	writeTake("MySong_20260729_005950_take2")
+	writeTake("MySong_20260729_005950_take3")
+	if got := jcs.uniqueSongName("MySong_20260729_005950"); got != "MySong_20260729_005950_take4" {
+		t.Errorf("expected _take4 suffix, got %q", got)
+	}
+
+	// The chosen name must survive the validation applied by StartReady.
+	if errMsg := validateFileName("MySong_20260729_005950_take4"); errMsg != "" {
+		t.Errorf("generated name rejected by validateFileName: %s", errMsg)
+	}
+}

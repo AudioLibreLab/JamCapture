@@ -435,21 +435,23 @@ func (s *Server) handleStartReady(w http.ResponseWriter, r *http.Request) {
 
 	// Transition to READY state
 	slog.Info("Server: Starting READY state", "song_name", songName, "profile", profile)
-	if err := s.service.StartReady(songName); err != nil {
+	effectiveName, err := s.service.StartReady(songName)
+	if err != nil {
 		slog.Error("Server: StartReady failed", "error", err, "song_name", songName)
 		s.sendErrorResponse(w, http.StatusInternalServerError,
 			fmt.Sprintf("Failed to start ready: %v", err),
 			"song_name", songName, "profile", profile, "operation", "start_ready")
 		return
 	}
-	slog.Info("Server: StartReady completed successfully", "song_name", songName)
+	slog.Info("Server: StartReady completed successfully", "song_name", effectiveName)
 
-	// Return success
+	// Return success. "song" carries the name actually used, which differs from
+	// the requested one when a recording already existed under that name.
 	w.Header().Set("Content-Type", "application/json")
 	response := map[string]interface{}{
 		"success": true,
 		"message": "Ready state activated",
-		"song":    songName,
+		"song":    effectiveName,
 		"profile": profile,
 	}
 	json.NewEncoder(w).Encode(response)
