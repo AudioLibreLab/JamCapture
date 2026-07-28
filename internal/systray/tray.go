@@ -127,13 +127,14 @@ func (st *SystemTray) handleRecord() {
 	songName := service.GenerateDefaultSongName()
 	slog.Info("Starting recording", "song_name", songName)
 
-	if err := st.service.StartReady(songName); err != nil {
+	effectiveName, err := st.service.StartReady(songName)
+	if err != nil {
 		slog.Error("Failed to start recording", "error", err)
 		st.showNotification("Recording Failed", fmt.Sprintf("Failed to start recording: %v", err))
 		return
 	}
 
-	st.showNotification("Recording Started", fmt.Sprintf("Recording '%s' has started", songName))
+	st.showNotification("Recording Started", fmt.Sprintf("Recording '%s' has started", effectiveName))
 }
 
 // handleStop stops the current recording

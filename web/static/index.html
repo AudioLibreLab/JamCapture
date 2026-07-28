@@ -1534,25 +1534,50 @@
 
 
         // Toggle recording function
+        //
+        // Guarded against re-entrance: without it, a double click (or a held
+        // key) fires several transitions in a row, and a stop can be followed
+        // immediately by a new READY on the same song name.
+        let toggleInFlight = false;
+
         function toggleRecording() {
+            if (toggleInFlight) {
+                return;
+            }
+            toggleInFlight = true;
+
+            const button = document.getElementById('main-control-button');
+            if (button) {
+                button.disabled = true;
+            }
+
             // Get current status from server
-            fetch('/status')
+            return fetch('/status')
                 .then(response => response.json())
                 .then(data => {
                     const status = data.status;
 
                     if (status === 'RECORDING') {
-                        stopRecording();
+                        return stopRecording();
                     } else if (status === 'READY') {
-                        cancelReady();
+                        return cancelReady();
                     } else if (status === 'STANDBY') {
                         if (validateFormBeforeStart()) {
-                            startReady();
+                            return startReady();
                         }
                     }
                 })
                 .catch(error => {
                     console.error('Failed to get status:', error);
+                })
+                .then(() => {
+                    toggleInFlight = false;
+                    if (button) {
+                        button.disabled = false;
+                    }
+                    // Refresh button label, session panel and suggested song name
+                    // right away instead of waiting for the next 2s poll.
+                    updateStatus();
                 });
         }
 
@@ -1600,7 +1625,7 @@
             const songInput = document.getElementById('song');
 
             // First validate that the profile still exists and hasn't changed
-            fetch('/config/active')
+            return fetch('/config/active')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Profile has been deleted in another session');
@@ -1659,6 +1684,13 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // The server renames the take when the requested name is
+                    // already on disk - show the name it actually recorded under.
+                    if (data.song) {
+                        songInput.value = data.song;
+                        lastSuggestedSong = data.song;
+                    }
+
                     const responseArea = document.getElementById('response-area');
                     responseArea.innerHTML = `
                         <article style="background-color: var(--pico-color-success-background);">
@@ -1699,7 +1731,7 @@
 
         // Cancel ready state (READY -> STANDBY)
         function cancelReady() {
-            fetch('/cancel', {
+            return fetch('/cancel', {
                 method: 'POST'
             })
             .then(response => response.json())
@@ -1740,7 +1772,7 @@
 
         // Stop recording function
         function stopRecording() {
-            fetch('/stop', {
+            return fetch('/stop', {
                 method: 'POST'
             })
             .then(response => response.json())
@@ -2934,6 +2966,9 @@
         });
 
         document.addEventListener('keydown', function(e) {
+            // Ignore auto-repeat: holding the key would otherwise chain several
+            // transitions (stop, then a new READY on the same song name).
+            if (e.repeat) return;
             const tag = document.activeElement.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
             if (e.code === 'Space') {

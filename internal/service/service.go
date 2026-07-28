@@ -28,7 +28,9 @@ func GenerateDefaultSongName() string {
 // Service represents the core JamCapture service interface
 type Service interface {
 	// Recording operations
-	StartReady(songName string) error
+	// StartReady returns the song name actually used, which differs from the
+	// requested one when a recording already exists under that name.
+	StartReady(songName string) (string, error)
 	CancelReady() error
 	StopRecording() error
 	GetRecordingStatus() (RecordingStatus, *RecordingSession)
@@ -185,8 +187,41 @@ func (s *JamCaptureService) CurrentSongName() string {
 	return GenerateDefaultSongName()
 }
 
-// StartReady prepares for recording (STANDBY -> READY)
-func (s *JamCaptureService) StartReady(songName string) error {
+// recordingExists reports whether a recording already exists for songName.
+func (s *JamCaptureService) recordingExists(songName string) bool {
+	path := filepath.Join(s.cfg.Output.Directory, util.CleanFileName(songName)+".mkv")
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// uniqueSongName returns songName when no recording uses it yet, otherwise the
+// first free "<songName>_takeN" variant. FFmpeg records with -y, so without this
+// a second READY on an already-used name would silently destroy the previous take.
+func (s *JamCaptureService) uniqueSongName(songName string) string {
+	if !s.recordingExists(songName) {
+		return songName
+	}
+
+	for take := 2; take <= 99; take++ {
+		candidate := fmt.Sprintf("%s_take%d", songName, take)
+		if !s.recordingExists(candidate) {
+			slog.Info("Recording already exists, renaming to preserve the previous take",
+				"requested", songName, "effective", candidate)
+			return candidate
+		}
+	}
+
+	// 99 takes of the same name: fall back to a name unique by construction.
+	candidate := fmt.Sprintf("%s_%s", songName, time.Now().Format("150405"))
+	slog.Info("Recording already exists, renaming to preserve the previous take",
+		"requested", songName, "effective", candidate)
+	return candidate
+}
+
+// StartReady prepares for recording (STANDBY -> READY).
+// It returns the song name actually used, which differs from songName when a
+// recording already exists under that name.
+func (s *JamCaptureService) StartReady(songName string) (string, error) {
 	slog.Debug("Service.StartReady called", "song_name", songName)
 	s.clearLastError() // Clear any previous errors when starting a new operation
 
@@ -195,20 +230,22 @@ func (s *JamCaptureService) StartReady(songName string) error {
 		err := fmt.Errorf("invalid song name: %s", errMsg)
 		slog.Error("Service.StartReady validation failed", "error", err)
 		s.setLastError(err.Error())
-		return err
+		return "", err
 	}
 
-	err := s.recorder.StartReady(songName)
-	if err != nil {
+	effectiveName := s.uniqueSongName(songName)
+
+	if err := s.recorder.StartReady(effectiveName); err != nil {
 		slog.Error("Service.StartReady failed", "error", err)
 		s.setLastError(fmt.Sprintf("Failed to start recording: %v", err))
-	} else {
-		s.songMu.Lock()
-		s.currentSong = songName
-		s.songMu.Unlock()
-		slog.Debug("Service.StartReady completed successfully")
+		return "", err
 	}
-	return err
+
+	s.songMu.Lock()
+	s.currentSong = effectiveName
+	s.songMu.Unlock()
+	slog.Debug("Service.StartReady completed successfully", "song_name", effectiveName)
+	return effectiveName, nil
 }
 
 // CancelReady cancels ready state (READY -> STANDBY)
@@ -314,9 +351,13 @@ func (s *JamCaptureService) RunPipeline(songName string, steps string) error {
 		switch step {
 		case 'r':
 			// Start ready - recording will start automatically when sources are available
-			if err := s.StartReady(songName); err != nil {
+			effectiveName, err := s.StartReady(songName)
+			if err != nil {
 				return fmt.Errorf("pipeline ready start failed: %w", err)
 			}
+			// Follow the rename when the requested name was already taken, so the
+			// later mix/play steps operate on the file we just recorded.
+			songName = effectiveName
 			// Note: Recording will start automatically when all sources are available.
 			// In pipeline mode, the caller should wait for recording to start and then
 			// handle the recording duration and call StopRecording() when appropriate

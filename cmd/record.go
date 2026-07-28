@@ -33,10 +33,14 @@ The recording will be saved as an MKV file with separate tracks for guitar and b
 
 		// Start ready state - recording will start automatically when sources are available
 		slog.Info("Calling StartReady to begin source monitoring")
-		if err := svc.StartReady(songName); err != nil {
+		effectiveName, err := svc.StartReady(songName)
+		if err != nil {
 			slog.Error("StartReady failed", "error", err)
 			return fmt.Errorf("failed to start ready: %w", err)
 		}
+		// Follow the rename when the requested name was already taken, so the
+		// auto-mix below operates on the file we just recorded.
+		songName = effectiveName
 
 		slog.Info("Waiting for audio sources... Recording will start automatically - Press Ctrl+C to stop")
 
