@@ -20,6 +20,7 @@ import (
 	"github.com/audiolibrelab/jamcapture/internal/config"
 	"github.com/audiolibrelab/jamcapture/internal/service"
 	"github.com/audiolibrelab/jamcapture/internal/util"
+	"github.com/audiolibrelab/jamcapture/web"
 	"github.com/spf13/viper"
 )
 
@@ -340,6 +341,16 @@ func (s *Server) Shutdown() error {
 	return nil
 }
 
+// readWebPage returns a page of the web UI. The copy on disk wins when the
+// server runs from the repository — handy while editing the UI — otherwise
+// the page embedded in the binary is served.
+func readWebPage(name string) ([]byte, error) {
+	if content, err := os.ReadFile(filepath.Join("web", name)); err == nil {
+		return content, nil
+	}
+	return web.Static.ReadFile(name)
+}
+
 // handleIndex serves the main web UI
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -347,10 +358,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to read the HTML file directly
-	htmlPath := "web/static/index.html"
-	htmlContent, err := os.ReadFile(htmlPath)
+	htmlContent, err := readWebPage("static/index.html")
 	if err != nil {
+		slog.Warn("Falling back to the built-in page", "page", "index.html", "error", err)
 		// Fallback to inline HTML if file not found
 		htmlContent = []byte(getDefaultHTML())
 	}
@@ -761,10 +771,9 @@ func (s *Server) handleConfigPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to read the config HTML file
-	htmlPath := "web/static/config.html"
-	htmlContent, err := os.ReadFile(htmlPath)
+	htmlContent, err := readWebPage("static/config.html")
 	if err != nil {
+		slog.Warn("Falling back to the built-in page", "page", "config.html", "error", err)
 		// Fallback to basic HTML if file not found
 		htmlContent = []byte(getDefaultConfigHTML())
 	}
@@ -2681,10 +2690,9 @@ func (s *Server) handleMixPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to read the mix HTML file
-	htmlPath := "web/static/mix.html"
-	htmlContent, err := os.ReadFile(htmlPath)
+	htmlContent, err := readWebPage("static/mix.html")
 	if err != nil {
+		slog.Warn("Falling back to the built-in page", "page", "mix.html", "error", err)
 		// Fallback to basic HTML if file not found
 		htmlContent = []byte(getDefaultMixHTML())
 	}
