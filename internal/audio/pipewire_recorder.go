@@ -361,12 +361,22 @@ func (r *PipeWireRecorder) Cleanup() error {
 // Uses a single JACK client (jamcapture_rec) with all channels multiplexed to avoid
 // xruns caused by multiple simultaneous JACK clients.
 func (r *PipeWireRecorder) buildAndStartFFmpeg(channels []config.Channel, outputFile string) error {
-	env := os.Environ()
-	if bufferSize := r.cfg.Audio.BufferSize; bufferSize > 0 {
-		quantum := fmt.Sprintf("%d/%d", bufferSize, r.cfg.Audio.SampleRate)
-		env = append(env, "PIPEWIRE_QUANTUM="+quantum)
-		env = append(env, "PIPEWIRE_LATENCY="+quantum)
+	// FFmpeg's JACK input copies a fixed number of frames per cycle — the
+	// buffer size seen at registration — and never follows a quantum change.
+	// If the graph then runs at a larger quantum (e.g. a Chrome stream asking
+	// for 512), only the first frames of each cycle are captured and the take
+	// comes out chopped. Pinning the quantum for this client keeps the two
+	// in sync for the whole recording.
+	bufferSize := r.cfg.Audio.BufferSize
+	if bufferSize <= 0 {
+		bufferSize = defaultQuantum()
 	}
+	quantum := fmt.Sprintf("%d/%d", bufferSize, r.cfg.Audio.SampleRate)
+	env := append(os.Environ(),
+		"PIPEWIRE_QUANTUM="+quantum,
+		"PIPEWIRE_LATENCY="+quantum,
+	)
+	slog.Debug("Pinning PipeWire quantum for FFmpeg", "quantum", quantum)
 
 	// Compute per-channel source counts and global offsets
 	totalInputs := 0

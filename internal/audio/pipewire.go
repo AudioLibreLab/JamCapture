@@ -173,6 +173,31 @@ func (pw *PipeWire) isEphemeralPort(portName string) bool {
 	return false
 }
 
+// fallbackQuantum is used when PipeWire's default quantum cannot be read.
+const fallbackQuantum = 256
+
+// defaultQuantum returns PipeWire's configured default quantum (clock.quantum
+// in the settings metadata), or fallbackQuantum if it cannot be read.
+func defaultQuantum() int {
+	output, err := exec.Command("pw-metadata", "-n", "settings").Output()
+	if err != nil {
+		slog.Debug("pw-metadata failed, using fallback quantum", "error", err, "quantum", fallbackQuantum)
+		return fallbackQuantum
+	}
+	// update: id:0 key:'clock.quantum' value:'128' type:''
+	for _, line := range strings.Split(string(output), "\n") {
+		if !strings.Contains(line, "key:'clock.quantum'") {
+			continue
+		}
+		var q int
+		if _, err := fmt.Sscanf(line[strings.Index(line, "value:'"):], "value:'%d'", &q); err == nil && q > 0 {
+			return q
+		}
+	}
+	slog.Debug("clock.quantum not found in pw-metadata, using fallback quantum", "quantum", fallbackQuantum)
+	return fallbackQuantum
+}
+
 // parsePwDump runs pw-dump and returns the parsed JSON objects.
 // Returns (nil, false) on error — callers should fail-open.
 func parsePwDump() ([]map[string]interface{}, bool) {
