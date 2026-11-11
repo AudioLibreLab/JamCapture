@@ -1357,6 +1357,7 @@
 
                     // Update UI state based on status
                     toggleUIState(data.status);
+                    armBackingRun(data.status);
 
                     // Sources status updated separately via startSourcesPolling()
                 })
@@ -1562,9 +1563,18 @@
                     } else if (status === 'READY') {
                         return cancelReady();
                     } else if (status === 'STANDBY') {
+                        // Backing track mode: name the take after the track and start
+                        // it muted, so Chrome's port shows up and READY turns into
+                        // RECORDING (see armBackingRun).
+                        beginBackingRun();
                         if (validateFormBeforeStart()) {
-                            return startReady();
+                            return startReady().then(ok => {
+                                if (!ok) {
+                                    endBackingRun();
+                                }
+                            });
                         }
+                        endBackingRun();
                     }
                 })
                 .catch(error => {
@@ -1702,6 +1712,7 @@
 
                     // Start fast polling for status updates
                     startFastPolling();
+                    return true;
 
                 } else {
                     throw new Error(data.error || 'Failed to start ready');
@@ -1726,7 +1737,93 @@
                         ${errorAction}
                     </article>
                 `;
+                return false;
             });
+        }
+
+        // ===== BACKING TRACK RECORDING =====
+        //
+        // READY only turns into RECORDING once every source has a port, and
+        // Chrome only has one while it plays. So in backing track mode the REC
+        // button plays the track muted to bring Chrome's port up, then, once
+        // recording has started and the ports are linked, gives the musician
+        // 2 seconds and restarts the track from the top at full volume.
+        const BACKING_COUNTDOWN_MS = 2000;
+        let backingRun = null;
+
+        // Starts a backing track run if the Backingtracks tab is active with a
+        // selected track. Returns false when not in backing track mode.
+        function beginBackingRun() {
+            const backingTab = document.getElementById('tab-backingtracks');
+            if (!backingTab || !backingTab.classList.contains('active')) {
+                return false;
+            }
+            const bt = currentBackingtracks.find(b => b.is_selected);
+            if (!bt) {
+                return false;
+            }
+
+            // Same name as the track; the server appends _take2, _take3... when taken.
+            const songName = bt.name
+                .replace(/\.[^.]+$/, '')
+                .replace(/[^A-Za-z0-9 _-]/g, '_')
+                .slice(0, 100);
+            document.getElementById('song').value = songName;
+
+            const audioPlayer = document.getElementById('audio-player');
+            if (!audioPlayer.src.includes(encodeURIComponent(bt.name))) {
+                loadBackingtrackAudio(bt);
+            }
+
+            backingRun = { volume: audioPlayer.volume, timer: null, active: false, armed: false };
+            audioPlayer.volume = 0;
+            audioPlayer.currentTime = 0;
+            // Called from the click handler, so autoplay is allowed.
+            audioPlayer.play().catch(error => {
+                console.error('Failed to start backing track:', error);
+                updatePlayerStatus('❌ Could not start the backing track');
+            });
+            updatePlayerStatus(`⏳ Waiting for recording: ${bt.name}`);
+            return true;
+        }
+
+        // Called on each status poll while a backing track run is active.
+        function armBackingRun(status) {
+            if (!backingRun) {
+                return;
+            }
+            if (status === 'READY' || status === 'RECORDING') {
+                backingRun.active = true;
+            }
+            if (status === 'RECORDING' && !backingRun.armed) {
+                backingRun.armed = true;
+                updatePlayerStatus('🎸 Get ready...');
+                backingRun.timer = setTimeout(() => {
+                    if (!backingRun) {
+                        return;
+                    }
+                    const audioPlayer = document.getElementById('audio-player');
+                    audioPlayer.currentTime = 0;
+                    audioPlayer.volume = backingRun.volume;
+                    updatePlayerStatus('🎵 Backing track playing');
+                }, BACKING_COUNTDOWN_MS);
+            } else if (backingRun.active && (status === 'STANDBY' || status === 'ERROR')) {
+                // Stopped, cancelled or timed out. A poll landing between the
+                // click and READY also reports STANDBY, hence the active guard.
+                endBackingRun();
+            }
+        }
+
+        // Stops the backing track and restores the player volume.
+        function endBackingRun() {
+            if (!backingRun) {
+                return;
+            }
+            clearTimeout(backingRun.timer);
+            const audioPlayer = document.getElementById('audio-player');
+            audioPlayer.pause();
+            audioPlayer.volume = backingRun.volume;
+            backingRun = null;
         }
 
         // Cancel ready state (READY -> STANDBY)
