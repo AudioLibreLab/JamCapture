@@ -184,14 +184,18 @@ func GenerateConfig(devices []DetectedDevice, running []SoftwareSourceTemplate, 
 	}
 
 	// Generic fallback for unrecognised hardware — use pw-dump device names when available
+	// Named devices are numbered from 1 per device, so input N matches the device's own input N.
 	genericIDs := make([]string, len(genericPorts))
+	perDevice := make(map[string]int)
 	for i, p := range genericPorts {
 		id := fmt.Sprintf("hw_input_%d", i+1)
 		name := id
 		if p.DeviceName != "" {
+			perDevice[p.DeviceName]++
+			n := perDevice[p.DeviceName]
 			slug := sanitizeID(p.DeviceName)
-			id = fmt.Sprintf("%s_%d", slug, i+1)
-			name = fmt.Sprintf("%s (input %d)", p.DeviceName, i+1)
+			id = fmt.Sprintf("%s_%d", slug, n)
+			name = fmt.Sprintf("%s (input %d)", p.DeviceName, n)
 		}
 		genericIDs[i] = id
 		defs = append(defs, ChannelDefinition{

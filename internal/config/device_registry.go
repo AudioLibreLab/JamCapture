@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 // ChannelTemplate describes one logical channel on a hardware device.
 // PortSuffix is the part after ":" in the JACK port name, e.g. "capture_AUX0".
 // For stereo channels, PortSuffix is the left port; PortSuffix2 is the right port
@@ -38,26 +40,7 @@ var KnownDevices = []DeviceTemplate{
 		Fingerprint:   "BEHRINGER_XR18",
 		ProfilePrefix: "xr18",
 		DisplayName:   "Behringer XR18",
-		Channels: []ChannelTemplate{
-			{ID: "xr18_ch1", Name: "ch1", PortSuffix: "capture_AUX0", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch2", Name: "ch2", PortSuffix: "capture_AUX1", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch3", Name: "ch3", PortSuffix: "capture_AUX2", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch4", Name: "ch4", PortSuffix: "capture_AUX3", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch5", Name: "ch5", PortSuffix: "capture_AUX4", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch6", Name: "ch6", PortSuffix: "capture_AUX5", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch7", Name: "ch7", PortSuffix: "capture_AUX6", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch8", Name: "ch8", PortSuffix: "capture_AUX7", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch9", Name: "ch9", PortSuffix: "capture_AUX8", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch10", Name: "ch10", PortSuffix: "capture_AUX9", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch11", Name: "ch11", PortSuffix: "capture_AUX10", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch12", Name: "ch12", PortSuffix: "capture_AUX11", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch13", Name: "ch13", PortSuffix: "capture_AUX12", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch14", Name: "ch14", PortSuffix: "capture_AUX13", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch15", Name: "ch15", PortSuffix: "capture_AUX14", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			{ID: "xr18_ch16", Name: "ch16", PortSuffix: "capture_AUX15", AudioMode: "mono", Type: "hardware", Volume: 4.0},
-			// AUX16+AUX17 are the stereo main bus mix output
-			{ID: "xr18_main", Name: "main", PortSuffix: "capture_AUX16", PortSuffix2: "capture_AUX17", AudioMode: "stereo", Type: "hardware", Volume: 4.0},
-		},
+		Channels:      xAir18Channels("xr18"),
 	},
 	{
 		Fingerprint:   "Focusrite_Scarlett_2i2",
@@ -88,4 +71,31 @@ var KnownDevices = []DeviceTemplate{
 			{ID: "ampero", Name: "ampero", PortSuffix: "capture_FL", PortSuffix2: "capture_FR", AudioMode: "stereo", Type: "hardware", Volume: 4.0},
 		},
 	},
+	{
+		// Same hardware as the XR18; USB must be set to 18x18 on the mixer
+		Fingerprint:   "MIDAS_MR18",
+		ProfilePrefix: "mr18",
+		DisplayName:   "Midas MR18",
+		Channels:      xAir18Channels("mr18"),
+	},
+}
+
+// xAir18Channels returns the 18x18 USB layout shared by the Behringer XR18 and
+// Midas MR18: inputs 1-16 on AUX0-AUX15, stereo main bus on AUX16+AUX17.
+func xAir18Channels(prefix string) []ChannelTemplate {
+	channels := make([]ChannelTemplate, 0, 17)
+	for i := 1; i <= 16; i++ {
+		channels = append(channels, ChannelTemplate{
+			ID:         fmt.Sprintf("%s_ch%d", prefix, i),
+			Name:       fmt.Sprintf("ch%d", i),
+			PortSuffix: fmt.Sprintf("capture_AUX%d", i-1),
+			AudioMode:  "mono",
+			Type:       "hardware",
+			Volume:     4.0,
+		})
+	}
+	return append(channels, ChannelTemplate{
+		ID: prefix + "_main", Name: "main", PortSuffix: "capture_AUX16", PortSuffix2: "capture_AUX17",
+		AudioMode: "stereo", Type: "hardware", Volume: 4.0,
+	})
 }

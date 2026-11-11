@@ -106,24 +106,8 @@ func LookupPortDescriptions(portGroups [][]string) map[string]string {
 		}
 	}
 
-	// Pass 1: port alias → nodeID
-	portToNode := make(map[string]int)
-	for _, obj := range objects {
-		if obj["type"] != "PipeWire:Interface:Port" {
-			continue
-		}
-		info, _ := obj["info"].(map[string]interface{})
-		props, _ := info["props"].(map[string]interface{})
-		alias, _ := props["port.alias"].(string)
-		if !wanted[alias] {
-			continue
-		}
-		if nid, ok := props["node.id"].(float64); ok {
-			portToNode[alias] = int(nid)
-		}
-	}
-
-	// Pass 2: nodeID → node.description
+	// Pass 1: nodeID → node.name / node.description
+	nodeName := make(map[int]string)
 	nodeDesc := make(map[int]string)
 	for _, obj := range objects {
 		if obj["type"] != "PipeWire:Interface:Node" {
@@ -135,8 +119,31 @@ func LookupPortDescriptions(portGroups [][]string) map[string]string {
 		}
 		info, _ := obj["info"].(map[string]interface{})
 		props, _ := info["props"].(map[string]interface{})
-		desc, _ := props["node.description"].(string)
-		nodeDesc[int(id)] = desc
+		nodeName[int(id)], _ = props["node.name"].(string)
+		nodeDesc[int(id)], _ = props["node.description"].(string)
+	}
+
+	// Pass 2: port → nodeID. pw-link names ports "<node.name>:<port.name>",
+	// which differs from port.alias (e.g. "MR18:capture_AUX0"), so match both.
+	portToNode := make(map[string]int)
+	for _, obj := range objects {
+		if obj["type"] != "PipeWire:Interface:Port" {
+			continue
+		}
+		info, _ := obj["info"].(map[string]interface{})
+		props, _ := info["props"].(map[string]interface{})
+		nid, ok := props["node.id"].(float64)
+		if !ok {
+			continue
+		}
+		alias, _ := props["port.alias"].(string)
+		portName, _ := props["port.name"].(string)
+		fullName := nodeName[int(nid)] + ":" + portName
+		for _, key := range []string{alias, fullName} {
+			if wanted[key] {
+				portToNode[key] = int(nid)
+			}
+		}
 	}
 
 	// Assemble result, filtering non-audio devices
